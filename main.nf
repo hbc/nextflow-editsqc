@@ -5,46 +5,63 @@ nextflow.enable.dsl=2
 
 include { TOULLIGQC } from './modules/nf-core/toulligqc'
 include { ISOQUANT } from './modules/nf-core/isoquant'
-include { GFFREAD } from './modules/nf-core/gffread'
+include { GFFREAD as GFFREAD_FASTA} from './modules/nf-core/gffread'
+include { GFFREAD as GFFREAD_GTF } from './modules/nf-core/gffread'
 include { MINIMAP2_ALIGN } from './modules/nf-core/minimap2/align'
 include { SALMON_QUANT } from './modules/nf-core/salmon/quant'
+include { GFF_TO_GTF as GFF_TO_GTF_PLASMID} from './modules/custom/gff_to_gtf'
+include { GFF_TO_GTF as GFF_TO_GTF_GENOME} from './modules/custom/gff_to_gtf'
+include { COMBINE_FASTA_ANNOTATION } from './modules/custom/combine_fasta_annotation'
+include { FILTER_LONG_READS } from './modules/custom/filter_long_reads'
 
 workflow {
     Channel.fromPath(params.genome_fasta, checkIfExists: true)
         .set { genome_fasta }
-
     Channel.fromPath(params.gene_annotation, checkIfExists: true)
         .set { gene_annotation }
+    Channel.fromPath(params.plasmid_annotation, checkIfExists: true)
+        .set { plasmid_annotation }
+    Channel.fromPath(params.plasmid_fasta, checkIfExists: true)
+        .set { plasmid_fasta }
 
     Channel.fromFilePairs(params.fastq_files, flat: true)
         .map { id, file -> tuple([id: id, name: file.baseName], file) }
         //.view()
         .set { fastq_files }
 
-    TOULLIGQC(fastq_files)
+    plasmid_gtf = GFF_TO_GTF_PLASMID(plasmid_annotation, 50)
+    gene_gtf = GFF_TO_GTF_GENOME(gene_annotation, 50)
 
-    ISOQUANT(fastq_files, genome_fasta, gene_annotation)
-
-    gff_with_meta = gene_annotation
+    combined = COMBINE_FASTA_ANNOTATION(plasmid_fasta, genome_fasta, plasmid_gtf, gene_gtf)
+    // combined.out.view()
+    gff_with_meta = combined.annotation
                         .map { file -> tuple([id: file.baseName, name: file.baseName], file) }
+    // combined.fasta
+    //     .view()
+    // combined.annotation
+    //     .view()
+    // get gtf with transcripts and exons
+    gtf_with_txs = GFFREAD_GTF(gff_with_meta, combined.fasta)
+    // gtf_with_txs.gtf
+    //     .view()
+    // get the transcript fasta file
+    tx_output = GFFREAD_FASTA(gtf_with_txs.gtf, combined.fasta)
+    // tx_output.gffread_fasta
+    //     .view()
+    filtered_reads = FILTER_LONG_READS(fastq_files)
 
-    gff_output = GFFREAD(gff_with_meta, genome_fasta)
+    TOULLIGQC(filtered_reads)
 
-    // gff_output.gffread_fasta
-    //                     .map { file -> tuple([id: file.baseName, name: file.baseName], file) }
-    //                     .view()
-    //                     .set {fasta_with_meta}
+    ISOQUANT(filtered_reads, combined.fasta, combined.annotation)
 
-    align_output = MINIMAP2_ALIGN(fastq_files, gff_output.gffread_fasta, true, '', false, true)
-
-    gff_output.gffread_fasta
-        .map { file -> tuple([id: file.baseName, name: file.baseName], file) }
+    align_output = MINIMAP2_ALIGN(filtered_reads, tx_output.gffread_fasta, true, '', false, true)
+    // align_output.bam
+    //     .view()
+    tx_output.gffread_fasta
+        .map { tuple -> tuple[1] }
+        // .view()
         .set { fasta_alone }
 
-    gff_output.gffread_fasta
-        .map { fasta -> fasta[1] }
-        //.view()
-        .set { fasta_alone }
+    SALMON_QUANT(align_output.bam, combined.annotation, fasta_alone, true, 'A')
 
-    SALMON_QUANT(align_output.bam, gene_annotation, fasta_alone, true, 'A')
 }
