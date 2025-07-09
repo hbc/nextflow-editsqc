@@ -1,0 +1,50 @@
+{
+    "name": "",
+    "homePage": "",
+    "repos": {
+        "https://github.com/nf-core/modules.git": {
+            "modules": {
+                "nf-core": {
+                    "gffread": {
+                        "branch": "master",
+                        "git_sha": "05954dab2ff481bcb999f24455da29a5828af08d",
+                        "installed_by": [
+                            "modules"
+                        ]
+                    },
+                    "minimap2/align": {
+                        "branch": "master",
+                        "git_sha": "a532706a19b3d83f14b1d48a6a815ed33eb48b0c",
+                        "installed_by": [
+                            "modules"
+                        ]
+                    },
+                    "minimap2/index": {
+                        "branch": "master",
+                        "git_sha": "a532706a19b3d83f14b1d48a6a815ed33eb48b0c",
+                        "installed_by": [
+                            "modules"
+                        ]
+                    },
+                    "salmon/quant": {
+                        "branch": "master",
+                        "git_sha": "db5a84497b80c4932b4498ec231f19403d19bcff",
+                        "installed_by": [
+                            "modules"
+                        ]
+                    },
+                    "toulligqc": {
+                        "branch": "master",
+                        "git_sha": "05954dab2ff481bcb999f24455da29a5828af08d",
+                        "installed_by": [
+                            "modules"
+                        ]
+                    }
+                }
+            },
+            "subworkflows": {
+                "nf-core": {}
+            }
+        }
+    }
+}
