@@ -4,6 +4,7 @@ nextflow.enable.dsl=2
 
 
 include { TOULLIGQC } from './modules/nf-core/toulligqc'
+include { TOULLIGQC as TOULLIGQC_GENOME } from './modules/nf-core/toulligqc'
 include { ISOQUANT } from './modules/nf-core/isoquant'
 include { GFFREAD as GFFREAD_FASTA} from './modules/nf-core/gffread'
 include { GFFREAD as GFFREAD_GTF } from './modules/nf-core/gffread'
@@ -14,6 +15,9 @@ include { GFF_TO_GTF as GFF_TO_GTF_PLASMID} from './modules/custom/gff_to_gtf'
 include { GFF_TO_GTF as GFF_TO_GTF_GENOME} from './modules/custom/gff_to_gtf'
 include { COMBINE_FASTA_ANNOTATION } from './modules/custom/combine_fasta_annotation'
 include { FILTER_LONG_READS } from './modules/custom/filter_long_reads'
+include { SAMTOOLS_VIEW }   from './modules/nf-core/samtools/view'
+include { SAMTOOLS_INDEX }   from './modules/nf-core/samtools/index'
+include { SAMTOOLS_IDXSTATS } from './modules/nf-core/samtools/idxstats'
 
 workflow {
     println(params)
@@ -64,7 +68,15 @@ workflow {
     
     // Map reads to genome fasta
     genome_align_output = MINIMAP2_ALIGN_GENOME(filtered_reads, fasta_with_meta, true, '', false, true)
-    
+    genome_idx = SAMTOOLS_INDEX(genome_align_output.bam)
+    genome_bam = genome_align_output.bam
+        .join(genome_idx.bai)
+    SAMTOOLS_IDXSTATS(genome_bam)
+    genome_bam
+        .view()
+    only_mapped = SAMTOOLS_VIEW(genome_bam, fasta_with_meta, 'bai')
+    TOULLIGQC_GENOME(only_mapped.bam)
+
     tx_output.gffread_fasta
         .map { tuple -> tuple[1] }
         // .view()
