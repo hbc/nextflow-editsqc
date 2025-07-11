@@ -8,6 +8,7 @@ include { ISOQUANT } from './modules/nf-core/isoquant'
 include { GFFREAD as GFFREAD_FASTA} from './modules/nf-core/gffread'
 include { GFFREAD as GFFREAD_GTF } from './modules/nf-core/gffread'
 include { MINIMAP2_ALIGN } from './modules/nf-core/minimap2/align'
+include { MINIMAP2_ALIGN as MINIMAP2_ALIGN_GENOME } from './modules/nf-core/minimap2/align'
 include { SALMON_QUANT } from './modules/nf-core/salmon/quant'
 include { GFF_TO_GTF as GFF_TO_GTF_PLASMID} from './modules/custom/gff_to_gtf'
 include { GFF_TO_GTF as GFF_TO_GTF_GENOME} from './modules/custom/gff_to_gtf'
@@ -15,6 +16,7 @@ include { COMBINE_FASTA_ANNOTATION } from './modules/custom/combine_fasta_annota
 include { FILTER_LONG_READS } from './modules/custom/filter_long_reads'
 
 workflow {
+    println(params)
     Channel.fromPath(params.genome_fasta, checkIfExists: true)
         .set { genome_fasta }
     Channel.fromPath(params.gene_annotation, checkIfExists: true)
@@ -35,6 +37,8 @@ workflow {
     combined = COMBINE_FASTA_ANNOTATION(plasmid_fasta, genome_fasta, plasmid_gtf, gene_gtf)
     // combined.out.view()
     gff_with_meta = combined.annotation
+                        .map { file -> tuple([id: file.baseName, name: file.baseName], file) }
+    fasta_with_meta = combined.fasta
                         .map { file -> tuple([id: file.baseName, name: file.baseName], file) }
     // combined.fasta
     //     .view()
@@ -57,6 +61,10 @@ workflow {
     align_output = MINIMAP2_ALIGN(filtered_reads, tx_output.gffread_fasta, true, '', false, true)
     // align_output.bam
     //     .view()
+    
+    // Map reads to genome fasta
+    genome_align_output = MINIMAP2_ALIGN_GENOME(filtered_reads, fasta_with_meta, true, '', false, true)
+    
     tx_output.gffread_fasta
         .map { tuple -> tuple[1] }
         // .view()
