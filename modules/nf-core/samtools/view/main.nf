@@ -10,6 +10,7 @@ process SAMTOOLS_VIEW {
     input:
     tuple val(meta), path(input), path(index)
     tuple val(meta2), path(fasta)
+    path qname
     val index_format
 
     output:
@@ -38,8 +39,7 @@ process SAMTOOLS_VIEW {
 
     output_file = index_format ? "${prefix}.${file_type}##idx##${prefix}.${file_type}.${index_format} --write-index" : "${prefix}.${file_type}"
     // Can't choose index type of unselected file
-    // readnames = qname ? "--qname-file ${qname} --output-unselected ${prefix}.unselected.${file_type}": ""
-    readnames = " "
+    readnames = qname ? "--qname-file ${qname} --output-unselected ${prefix}.unselected.${file_type}": ""
 
     if ("$input" == "${prefix}.${file_type}") error "Input and output names are the same, use \"task.ext.prefix\" to disambiguate!"
     if (index_format) {
