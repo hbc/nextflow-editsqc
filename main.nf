@@ -84,7 +84,7 @@ workflow {
     tx_bam = align_output.bam
         .join(tx_idx.bai)
     SAMTOOLS_IDXSTATS_TX(tx_bam)
-    only_tx_mapped = SAMTOOLS_VIEW_TX(tx_bam, tx_output.gffread_fasta, 'bai')
+    only_tx_mapped = SAMTOOLS_VIEW_TX(tx_bam, tx_output.gffread_fasta, [], 'bai')
 
     // Map reads to genome fasta
     genome_align_output = MINIMAP2_ALIGN_GENOME(filtered_reads, fasta_with_meta, true, '', false, true)
