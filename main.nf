@@ -95,7 +95,7 @@ workflow {
     SAMTOOLS_IDXSTATS(genome_bam)
     genome_bam
         .view()
-    only_mapped = SAMTOOLS_VIEW(genome_bam, fasta_with_meta, 'bai')
+    only_mapped = SAMTOOLS_VIEW(genome_bam, fasta_with_meta, [], 'bai')
     TOULLIGQC_GENOME(only_mapped.bam)
 
 
