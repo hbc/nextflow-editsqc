@@ -22,7 +22,8 @@ include { SAMTOOLS_INDEX }   from './modules/nf-core/samtools/index'
 include { SAMTOOLS_IDXSTATS } from './modules/nf-core/samtools/idxstats'
 include { SAMTOOLS_INDEX as SAMTOOLS_INDEX_TX }   from './modules/nf-core/samtools/index'
 include { SAMTOOLS_IDXSTATS as SAMTOOLS_IDXSTATS_TX } from './modules/nf-core/samtools/idxstats'
-
+include { SAMTOOLS_VIEW as SAMTOOLS_VIEW_TX } from './modules/nf-core/samtools/view'
+include { RSEM_GBAM2TBAM } from './modules/custom/rsem_gbam2tbam'
 workflow {
     println(params)
     Channel.fromPath(params.genome_fasta, checkIfExists: true)
@@ -60,14 +61,22 @@ workflow {
     tx_output = GFFREAD_FASTA(gtf_with_txs.gtf, combined.fasta)
     // tx_output.gffread_fasta
     //     .view()
-    
+    tx_output.gffread_fasta
+        .map { tuple -> tuple[1] }
+        // .view()
+        .set { fasta_alone }
+    gtf_with_txs.gtf
+        .map { tuple -> tuple[1] }
+        .view()
+        .set { gff_alone }
+
     // Extract intergenic sequences
     
     filtered_reads = FILTER_LONG_READS(fastq_files)
 
     TOULLIGQC(filtered_reads)
 
-    ISOQUANT(filtered_reads, combined.fasta, combined.annotation)
+    //ISOQUANT(filtered_reads, combined.fasta, gff_alone)
 
     align_output = MINIMAP2_ALIGN(filtered_reads, tx_output.gffread_fasta, true, '', false, true)
     // align_output.bam
@@ -76,7 +85,8 @@ workflow {
     tx_bam = align_output.bam
         .join(tx_idx.bai)
     SAMTOOLS_IDXSTATS_TX(tx_bam)
-    
+    only_tx_mapped = SAMTOOLS_VIEW_TX(tx_bam, tx_output.gffread_fasta, 'bai')
+
     // Map reads to genome fasta
     genome_align_output = MINIMAP2_ALIGN_GENOME(filtered_reads, fasta_with_meta, true, '', false, true)
     genome_idx = SAMTOOLS_INDEX(genome_align_output.bam)
@@ -88,15 +98,15 @@ workflow {
     only_mapped = SAMTOOLS_VIEW(genome_bam, fasta_with_meta, 'bai')
     TOULLIGQC_GENOME(only_mapped.bam)
 
-    tx_output.gffread_fasta
-        .map { tuple -> tuple[1] }
-        // .view()
-        .set { fasta_alone }
 
     // Prepare gentrome and decoys for Salmon
     salmon_index = SALMON_INDEX(combined.fasta, fasta_alone)
     SALMON_QUANT(filtered_reads, salmon_index.index, combined.annotation, fasta_alone, false, 'A')
-    //SALMON_QUANT(genome_align_output.bam, salmon_index.index, combined.annotation, combined.fasta, true, 'A')
-    SALMON_QUANT_TX(align_output.bam, salmon_index.index, combined.annotation, fasta_alone, true, 'A')
+    
+    // Convert genomic BAM to transcriptomic BAM using RSEM
+    // rsem_transcript_bam = RSEM_GBAM2TBAM(genome_bam, combined.annotation)
+    
+    // Use RSEM-converted transcriptomic BAM for Salmon quantification
+    SALMON_QUANT_TX(only_tx_mapped.bam, salmon_index.index, combined.annotation, fasta_alone, true, 'A')
 
 }
