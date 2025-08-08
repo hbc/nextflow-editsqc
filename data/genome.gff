@@ -1,0 +1,6 @@
+##gff-version 3
+chromosome	auto	gene	1001	2000	.	+	.	ID=gene01;Name=gene01
+chromosome	auto	gene	3001	4000	.	+	.	ID=gene02;Name=gene02
+chromosome	auto	gene	5001	6000	.	+	.	ID=gene03;Name=gene03
+chromosome	auto	gene	7001	8000	.	+	.	ID=gene04;Name=gene04
+chromosome	auto	gene	9001	10000	.	+	.	ID=gene05;Name=gene05

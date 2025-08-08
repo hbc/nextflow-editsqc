@@ -11,6 +11,8 @@ include { GFFREAD as GFFREAD_GTF } from './modules/nf-core/gffread'
 include { MINIMAP2_ALIGN } from './modules/nf-core/minimap2/align'
 include { MINIMAP2_ALIGN as MINIMAP2_ALIGN_GENOME } from './modules/nf-core/minimap2/align'
 include { SALMON_QUANT } from './modules/nf-core/salmon/quant'
+include { SALMON_QUANT as SALMON_QUANT_TX } from './modules/nf-core/salmon/quant'
+include { SALMON_INDEX } from './modules/nf-core/salmon/index'
 include { GFF_TO_GTF as GFF_TO_GTF_PLASMID} from './modules/custom/gff_to_gtf'
 include { GFF_TO_GTF as GFF_TO_GTF_GENOME} from './modules/custom/gff_to_gtf'
 include { COMBINE_FASTA_ANNOTATION } from './modules/custom/combine_fasta_annotation'
@@ -18,6 +20,8 @@ include { FILTER_LONG_READS } from './modules/custom/filter_long_reads'
 include { SAMTOOLS_VIEW }   from './modules/nf-core/samtools/view'
 include { SAMTOOLS_INDEX }   from './modules/nf-core/samtools/index'
 include { SAMTOOLS_IDXSTATS } from './modules/nf-core/samtools/idxstats'
+include { SAMTOOLS_INDEX as SAMTOOLS_INDEX_TX }   from './modules/nf-core/samtools/index'
+include { SAMTOOLS_IDXSTATS as SAMTOOLS_IDXSTATS_TX } from './modules/nf-core/samtools/idxstats'
 
 workflow {
     println(params)
@@ -31,7 +35,7 @@ workflow {
         .set { plasmid_fasta }
 
     Channel.fromFilePairs(params.fastq_files, flat: true)
-        .map { id, file -> tuple([id: id, name: file.baseName], file) }
+        .map { id, file -> tuple([id: id, name: file.baseName, single_end: params.single_end], file) }
         //.view()
         .set { fastq_files }
 
@@ -56,6 +60,9 @@ workflow {
     tx_output = GFFREAD_FASTA(gtf_with_txs.gtf, combined.fasta)
     // tx_output.gffread_fasta
     //     .view()
+    
+    // Extract intergenic sequences
+    
     filtered_reads = FILTER_LONG_READS(fastq_files)
 
     TOULLIGQC(filtered_reads)
@@ -65,6 +72,10 @@ workflow {
     align_output = MINIMAP2_ALIGN(filtered_reads, tx_output.gffread_fasta, true, '', false, true)
     // align_output.bam
     //     .view()
+    tx_idx = SAMTOOLS_INDEX_TX(align_output.bam)
+    tx_bam = align_output.bam
+        .join(tx_idx.bai)
+    SAMTOOLS_IDXSTATS_TX(tx_bam)
     
     // Map reads to genome fasta
     genome_align_output = MINIMAP2_ALIGN_GENOME(filtered_reads, fasta_with_meta, true, '', false, true)
@@ -82,6 +93,10 @@ workflow {
         // .view()
         .set { fasta_alone }
 
-    SALMON_QUANT(align_output.bam, combined.annotation, fasta_alone, true, 'A')
+    // Prepare gentrome and decoys for Salmon
+    salmon_index = SALMON_INDEX(combined.fasta, fasta_alone)
+    SALMON_QUANT(filtered_reads, salmon_index.index, combined.annotation, fasta_alone, false, 'A')
+    //SALMON_QUANT(genome_align_output.bam, salmon_index.index, combined.annotation, combined.fasta, true, 'A')
+    SALMON_QUANT_TX(align_output.bam, salmon_index.index, combined.annotation, fasta_alone, true, 'A')
 
 }

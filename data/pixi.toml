@@ -1,0 +1,13 @@
+[workspace]
+authors = ["lpantano <lorena.pantano@gmail.com>"]
+channels = ["conda-forge"]
+name = "data"
+platforms = ["linux-64"]
+version = "0.1.0"
+
+[tasks]
+generate_example_data = "python ./generate_example_data.py"
+generate_reads        = "python ./generate_nanopore_reads.py"
+
+[dependencies]
+python = "3.10.*"

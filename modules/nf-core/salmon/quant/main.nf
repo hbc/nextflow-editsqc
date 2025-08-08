@@ -9,7 +9,7 @@ process SALMON_QUANT {
 
     input:
     tuple val(meta), path(reads)
-    // path index
+    path index
     path gtf
     path transcript_fasta
     val alignment_mode
@@ -28,8 +28,15 @@ process SALMON_QUANT {
     def args = task.ext.args ?: ''
     prefix = task.ext.prefix ?: "${meta.id}"
 
-    def reference = "-t ${transcript_fasta}"
-    def input_reads = "-a ${reads}"
+    def reference = "--index ${index}"
+    def reads1 = []
+    def reads2 = []
+    meta.single_end ? [reads].flatten().each { reads1 << it } : reads.eachWithIndex { v, ix -> (ix & 1 ? reads2 : reads1) << v }
+    def input_reads = meta.single_end ? "-r ${reads1.join(" ")}" : "-1 ${reads1.join(" ")} -2 ${reads2.join(" ")}"
+    if (alignment_mode) {
+        reference = "-t ${transcript_fasta}"
+        input_reads = "-a ${reads}"
+    }
 
     def strandedness_opts = [
         'A',
