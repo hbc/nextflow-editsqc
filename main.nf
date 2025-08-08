@@ -23,7 +23,6 @@ include { SAMTOOLS_IDXSTATS } from './modules/nf-core/samtools/idxstats'
 include { SAMTOOLS_INDEX as SAMTOOLS_INDEX_TX }   from './modules/nf-core/samtools/index'
 include { SAMTOOLS_IDXSTATS as SAMTOOLS_IDXSTATS_TX } from './modules/nf-core/samtools/idxstats'
 include { SAMTOOLS_VIEW as SAMTOOLS_VIEW_TX } from './modules/nf-core/samtools/view'
-include { RSEM_GBAM2TBAM } from './modules/custom/rsem_gbam2tbam'
 workflow {
     println(params)
     Channel.fromPath(params.genome_fasta, checkIfExists: true)
@@ -102,9 +101,6 @@ workflow {
     // Prepare gentrome and decoys for Salmon
     salmon_index = SALMON_INDEX(combined.fasta, fasta_alone)
     SALMON_QUANT(filtered_reads, salmon_index.index, combined.annotation, fasta_alone, false, 'A')
-    
-    // Convert genomic BAM to transcriptomic BAM using RSEM
-    // rsem_transcript_bam = RSEM_GBAM2TBAM(genome_bam, combined.annotation)
     
     // Use RSEM-converted transcriptomic BAM for Salmon quantification
     SALMON_QUANT_TX(only_tx_mapped.bam, salmon_index.index, combined.annotation, fasta_alone, true, 'A')
