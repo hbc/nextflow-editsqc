@@ -3,9 +3,9 @@
 nextflow.enable.dsl=2
 
 
+include { ISOQUANT } from './modules/nf-core/isoquant'
 include { TOULLIGQC } from './modules/nf-core/toulligqc'
 include { TOULLIGQC as TOULLIGQC_GENOME } from './modules/nf-core/toulligqc'
-include { ISOQUANT } from './modules/nf-core/isoquant'
 include { GFFREAD as GFFREAD_FASTA} from './modules/nf-core/gffread'
 include { GFFREAD as GFFREAD_GTF } from './modules/nf-core/gffread'
 include { MINIMAP2_ALIGN } from './modules/nf-core/minimap2/align'

@@ -1,0 +1,161 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/nf-core/nextflow-nanopore//nextflow_schema.json",
+  "title": "nextflow-nanopore for RNAseq",
+  "description": "Dedicated to QC gene insertions in host genomes",
+  "type": "object",
+  "$defs": {
+    "input_output_options": {
+      "title": "Input/output options",
+      "type": "object",
+      "fa_icon": "fas fa-terminal",
+      "description": "Define where the pipeline should find input data and save output data.",
+      "required": ["outdir"],
+      "properties": {
+        "outdir": {
+          "type": "string",
+          "format": "directory-path",
+          "description": "The output directory where the results will be saved. You have to use absolute paths to storage on Cloud infrastructure.",
+          "fa_icon": "fas fa-folder-open",
+          "default": "./results"
+        },
+        "fastq_files": {
+          "type": "string",
+          "format": "file-path",
+          "description": "Path to the input FASTQ files. Can be a single file or a glob pattern (e.g. `data/*.fastq.gz`).",
+          "fa_icon": "fas fa-file-alt"
+        },
+        "genome_fasta": {
+          "type": "string",
+          "format": "file-path",
+          "description": "Path to the reference genome FASTA file.",
+          "fa_icon": "fas fa-dna"
+        },
+        "gene_annotation": {
+          "type": "string",
+          "format": "file-path",
+          "description": "Path to the gene annotation file in GFF format.",
+          "fa_icon": "fas fa-file-code"
+        },
+        "plasmid_annotation": {
+          "type": "string",
+          "format": "file-path",
+          "description": "Path to the plasmid annotation file in GFF format.",
+          "fa_icon": "fas fa-file-code"
+        },
+        "plasmid_fasta": {
+          "type": "string",
+          "format": "file-path",
+          "description": "Path to the plasmid FASTA file.",
+          "fa_icon": "fas fa-file-dna"
+        },
+        "single_end": {
+          "type": "boolean",
+          "description": "Boolean indicating whether the input data is single-end (true) or paired-end (false).",
+          "default": true,
+          "fa_icon": "fas fa-random"
+        }
+      }
+    },
+    "generic_options": {
+      "title": "Generic options",
+      "type": "object",
+      "fa_icon": "fas fa-file-import",
+      "description": "Less common options for the pipeline, typically set in a config file.",
+      "help_text": "These options are common to all nf-core pipelines and allow you to customise some of the core preferences for how the pipeline runs.\n\nTypically these options would be set in a Nextflow config file loaded for all pipeline runs, such as `~/.nextflow/config`.",
+      "properties": {
+        "version": {
+          "type": "boolean",
+          "description": "Display version and exit.",
+          "fa_icon": "fas fa-question-circle",
+          "hidden": true
+        },
+        "validate_params": {
+          "type": "boolean",
+          "description": "Boolean whether to validate parameters against the schema at runtime",
+          "default": true,
+          "fa_icon": "fas fa-check-square",
+          "hidden": true
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "$ref": "#/$defs/input_output_options"
+    },
+    {
+      "$ref": "#/$defs/generic_options"
+    }
+  ],
+  "properties": {
+    "multiqc_config": {
+      "type": "string"
+    },
+    "custom_config_version": {
+      "type": "string",
+      "default": "master"
+    },
+    "custom_config_base": {
+      "type": "string",
+      "default": "https://raw.githubusercontent.com/nf-core/configs/master"
+    },
+    "config_profile_description": {
+      "type": "string"
+    },
+    "config_profile_contact": {
+      "type": "string"
+    },
+    "config_profile_url": {
+      "type": "string"
+    },
+    "max_multiqc_email_size": {
+      "type": "string",
+      "default": "25.MB"
+    },
+    "multiqc_title": {
+      "type": "string"
+    },
+    "tracedir": {
+      "type": "string",
+      "default": "./results/pipeline_info"
+    },
+    "email": {
+      "type": "string"
+    },
+    "email_on_fail": {
+      "type": "string"
+    },
+    "plaintext_email": {
+      "type": "boolean"
+    },
+    "monochrome_logs": {
+      "type": "boolean"
+    },
+    "hook_url": {
+      "type": "string"
+    },
+    "show_hidden_params": {
+      "type": "boolean"
+    },
+    "schema_ignore_params": {
+      "type": "string",
+      "default": "genomes"
+    },
+    "config_profile_name": {
+      "type": "string"
+    },
+    "max_memory": {
+      "type": "string",
+      "default": "128.GB"
+    },
+    "max_cpus": {
+      "type": "integer",
+      "default": 8
+    },
+    "max_time": {
+      "type": "string",
+      "default": "240.h"
+    }
+  }
+}

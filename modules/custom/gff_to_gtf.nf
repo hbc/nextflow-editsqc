@@ -12,6 +12,18 @@ process GFF_TO_GTF {
 
     script:
     """
-    gff_to_gtf.py $plasmid_annotation -o ${plasmid_annotation.baseName}.fixed.gtf -e $extension
+    set -euo pipefail
+
+    infile="$plasmid_annotation"
+
+    # If input is gzipped, uncompress to a temporary file
+    if [[ "\$infile" == *.gz ]]; then
+        echo "Detected gzipped input: \$infile - decompressing..."
+        zcat "\$infile" > input.gtf
+    else
+        cp "\$infile" input.gtf
+    fi
+
+    gff_to_gtf.py input.gtf -o ${plasmid_annotation.baseName}.fixed.gtf -e $extension
     """
 }
