@@ -27,7 +27,7 @@ def convert_gff_to_gtf(gff_file, output=sys.stdout, extension=50):
 
             seqid, source, feature_type, start, end, score, strand, phase, attributes = cols
 
-            valid_features = {'gene', 'CDS', 'transcription_unit'}
+            valid_features = {'gene', 'CDS', 'transcription_unit', 'tRNA', 'rRNA'}
             if feature_type not in valid_features:
                 print(f"Skipping invalid feature type: {feature_type}", file=sys.stderr)
                 continue  # Skip invalid feature types
