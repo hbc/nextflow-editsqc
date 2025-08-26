@@ -13,6 +13,7 @@ include { MINIMAP2_ALIGN as MINIMAP2_ALIGN_GENOME } from './modules/nf-core/mini
 include { SALMON_QUANT } from './modules/nf-core/salmon/quant'
 include { SALMON_QUANT as SALMON_QUANT_TX } from './modules/nf-core/salmon/quant'
 include { SALMON_INDEX } from './modules/nf-core/salmon/index'
+include { STRINGTIE_STRINGTIE } from './modules/nf-core/stringtie/stringtie'
 include { GFF_TO_GTF as GFF_TO_GTF_PLASMID} from './modules/custom/gff_to_gtf'
 include { GFF_TO_GTF as GFF_TO_GTF_GENOME} from './modules/custom/gff_to_gtf'
 include { COMBINE_FASTA_ANNOTATION } from './modules/custom/combine_fasta_annotation'
@@ -105,4 +106,7 @@ workflow {
     // Use RSEM-converted transcriptomic BAM for Salmon quantification
     SALMON_QUANT_TX(only_tx_mapped.bam, salmon_index.index, combined.annotation, fasta_alone, true, 'A')
 
+    // Quantifie with stringtie
+    STRINGTIE_STRINGTIE(genome_align_output.bam, gff_alone)
+    
 }
