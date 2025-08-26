@@ -1,4 +1,5 @@
 process COMBINE_FASTA_ANNOTATION {
+    label 'process_low'
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
         'https://community-cr-prod.seqera.io/docker/registry/v2/blobs/sha256/eb/eb11a25875463a2bb2cca2dbef9103faabb1be227465732fa18e7373ee6eb66f/data' :
         'community.wave.seqera.io/library/seqtk:r93--b54ec2a2e8839010' }"
