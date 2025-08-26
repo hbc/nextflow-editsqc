@@ -40,8 +40,8 @@ workflow {
         //.view()
         .set { fastq_files }
 
-    plasmid_gtf = GFF_TO_GTF_PLASMID(plasmid_annotation, 50)
-    gene_gtf = GFF_TO_GTF_GENOME(gene_annotation, 50)
+    plasmid_gtf = GFF_TO_GTF_PLASMID(plasmid_annotation, params.extension)
+    gene_gtf = GFF_TO_GTF_GENOME(gene_annotation, params.extension)
 
     combined = COMBINE_FASTA_ANNOTATION(plasmid_fasta, genome_fasta, plasmid_gtf, gene_gtf)
     // combined.out.view()
