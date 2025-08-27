@@ -14,6 +14,9 @@ include { SALMON_QUANT } from './modules/nf-core/salmon/quant'
 include { SALMON_QUANT as SALMON_QUANT_TX } from './modules/nf-core/salmon/quant'
 include { SALMON_INDEX } from './modules/nf-core/salmon/index'
 include { STRINGTIE_STRINGTIE } from './modules/nf-core/stringtie/stringtie'
+include { STRINGTIE_MERGE } from './modules/nf-core/stringtie/merge'
+include { STRINGTIE_STRINGTIE as STRINGTIE_QUANT} from './modules/nf-core/stringtie/stringtie'
+include { REPLACE_GENEID_WITH_REF } from './modules/custom/replace_geneid_with_ref'
 include { GFF_TO_GTF as GFF_TO_GTF_PLASMID} from './modules/custom/gff_to_gtf'
 include { GFF_TO_GTF as GFF_TO_GTF_GENOME} from './modules/custom/gff_to_gtf'
 include { COMBINE_FASTA_ANNOTATION } from './modules/custom/combine_fasta_annotation'
@@ -24,6 +27,8 @@ include { SAMTOOLS_IDXSTATS } from './modules/nf-core/samtools/idxstats'
 include { SAMTOOLS_INDEX as SAMTOOLS_INDEX_TX }   from './modules/nf-core/samtools/index'
 include { SAMTOOLS_IDXSTATS as SAMTOOLS_IDXSTATS_TX } from './modules/nf-core/samtools/idxstats'
 include { SAMTOOLS_VIEW as SAMTOOLS_VIEW_TX } from './modules/nf-core/samtools/view'
+include { PIPELINE_INFO } from './modules/custom/pipeline_info'
+
 workflow {
     println(params)
     Channel.fromPath(params.genome_fasta, checkIfExists: true)
@@ -49,10 +54,7 @@ workflow {
                         .map { file -> tuple([id: file.baseName, name: file.baseName], file) }
     fasta_with_meta = combined.fasta
                         .map { file -> tuple([id: file.baseName, name: file.baseName], file) }
-    // combined.fasta
-    //     .view()
-    // combined.annotation
-    //     .view()
+    
     // get gtf with transcripts and exons
     gtf_with_txs = GFFREAD_GTF(gff_with_meta, combined.fasta)
     // gtf_with_txs.gtf
@@ -61,32 +63,26 @@ workflow {
     tx_output = GFFREAD_FASTA(gtf_with_txs.gtf, combined.fasta)
     // tx_output.gffread_fasta
     //     .view()
+
     tx_output.gffread_fasta
         .map { tuple -> tuple[1] }
         // .view()
         .set { fasta_alone }
     gtf_with_txs.gtf
         .map { tuple -> tuple[1] }
-        .view()
+        // .view()
         .set { gff_alone }
 
-    // Extract intergenic sequences
-    
     filtered_reads = FILTER_LONG_READS(fastq_files)
 
     TOULLIGQC(filtered_reads)
 
-    //ISOQUANT(filtered_reads, combined.fasta, gff_alone)
+    // ISOQUANT(filtered_reads, combined.fasta, combined.annotation)
 
     align_output = MINIMAP2_ALIGN(filtered_reads, tx_output.gffread_fasta, true, '', false, true)
     // align_output.bam
     //     .view()
-    tx_idx = SAMTOOLS_INDEX_TX(align_output.bam)
-    tx_bam = align_output.bam
-        .join(tx_idx.bai)
-    SAMTOOLS_IDXSTATS_TX(tx_bam)
-    only_tx_mapped = SAMTOOLS_VIEW_TX(tx_bam, tx_output.gffread_fasta, [], 'bai')
-
+    
     // Map reads to genome fasta
     genome_align_output = MINIMAP2_ALIGN_GENOME(filtered_reads, fasta_with_meta, true, '', false, true)
     genome_idx = SAMTOOLS_INDEX(genome_align_output.bam)
@@ -97,16 +93,32 @@ workflow {
         .view()
     only_mapped = SAMTOOLS_VIEW(genome_bam, fasta_with_meta, [], 'bai')
     TOULLIGQC_GENOME(only_mapped.bam)
-
-
+    // Old Salmon quantification steps
     // Prepare gentrome and decoys for Salmon
-    salmon_index = SALMON_INDEX(combined.fasta, fasta_alone)
-    SALMON_QUANT(filtered_reads, salmon_index.index, combined.annotation, fasta_alone, false, 'A')
+    // salmon_index = SALMON_INDEX(combined.fasta, fasta_alone)
+    // SALMON_QUANT(filtered_reads, salmon_index.index, combined.annotation, fasta_alone, false, 'A')
+    //     tx_idx = SAMTOOLS_INDEX_TX(align_output.bam)
+    // tx_bam = align_output.bam
+    //     .join(tx_idx.bai)
+    // SAMTOOLS_IDXSTATS_TX(tx_bam)
+    // only_tx_mapped = SAMTOOLS_VIEW_TX(tx_bam, tx_output.gffread_fasta, [], 'bai')
+    // SALMON_QUANT(align_output.bam, combined.annotation, fasta_alone, true, 'A')
     
-    // Use RSEM-converted transcriptomic BAM for Salmon quantification
-    SALMON_QUANT_TX(only_tx_mapped.bam, salmon_index.index, combined.annotation, fasta_alone, true, 'A')
-
     // Quantifie with stringtie
-    STRINGTIE_STRINGTIE(genome_align_output.bam, gff_alone)
-    
+    stringtie_res = STRINGTIE_STRINGTIE(genome_align_output.bam, gff_alone)
+    stringtie_res.transcript_gtf
+        .map { tuple -> tuple[1] }
+        // .view()
+        .set { string_gtf_alone }
+
+    stringtie_new = STRINGTIE_MERGE(string_gtf_alone, gff_alone)
+    stringtie_fixed = REPLACE_GENEID_WITH_REF(stringtie_new.gtf)
+    STRINGTIE_QUANT(genome_align_output.bam, stringtie_fixed.gtf)
+    // Create a pipeline info file and publish it
+    pipeline_info = PIPELINE_INFO()
+
+    // Ensure it is available in the final workflow outputs (join to a channel used later)
+    // pipeline_info
+    //     .view()
+    //     .set { final_pipeline_info }
 }
