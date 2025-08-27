@@ -22,6 +22,7 @@ include { GFF_TO_GTF as GFF_TO_GTF_GENOME} from './modules/custom/gff_to_gtf'
 include { COMBINE_FASTA_ANNOTATION } from './modules/custom/combine_fasta_annotation'
 include { FILTER_LONG_READS } from './modules/custom/filter_long_reads'
 include { SAMTOOLS_VIEW }   from './modules/nf-core/samtools/view'
+include { SAMTOOLS_VIEW as SAMTOOLS_VIEW_REGION }   from './modules/nf-core/samtools/view'
 include { SAMTOOLS_INDEX }   from './modules/nf-core/samtools/index'
 include { SAMTOOLS_IDXSTATS } from './modules/nf-core/samtools/idxstats'
 include { SAMTOOLS_INDEX as SAMTOOLS_INDEX_TX }   from './modules/nf-core/samtools/index'
@@ -35,20 +36,21 @@ workflow {
         .set { genome_fasta }
     Channel.fromPath(params.gene_annotation, checkIfExists: true)
         .set { gene_annotation }
-    Channel.fromPath(params.plasmid_annotation, checkIfExists: true)
-        .set { plasmid_annotation }
-    Channel.fromPath(params.plasmid_fasta, checkIfExists: true)
-        .set { plasmid_fasta }
+    plasmid_annotation_ch = params.plasmid_annotation ? Channel.fromPath(params.plasmid_annotation, checkIfExists: true) : Channel.empty()
+    plasmid_fasta_ch = params.plasmid_fasta ? Channel.fromPath(params.plasmid_fasta, checkIfExists: true) : Channel.empty()
+    if (params.plasmid_annotation){
+        plasmid_gtf = GFF_TO_GTF_PLASMID(plasmid_annotation_ch, params.extension)
+    } else {
+        plasmid_gtf = Channel.empty()
+    }
 
     Channel.fromFilePairs(params.fastq_files, flat: true)
         .map { id, file -> tuple([id: id, name: file.baseName, single_end: params.single_end], file) }
         //.view()
         .set { fastq_files }
 
-    plasmid_gtf = GFF_TO_GTF_PLASMID(plasmid_annotation, params.extension)
     gene_gtf = GFF_TO_GTF_GENOME(gene_annotation, params.extension)
-
-    combined = COMBINE_FASTA_ANNOTATION(plasmid_fasta, genome_fasta, plasmid_gtf, gene_gtf)
+    combined = COMBINE_FASTA_ANNOTATION(plasmid_fasta_ch.ifEmpty([]), genome_fasta, plasmid_gtf.ifEmpty([]), gene_gtf)
     // combined.out.view()
     gff_with_meta = combined.annotation
                         .map { file -> tuple([id: file.baseName, name: file.baseName], file) }
@@ -90,7 +92,11 @@ workflow {
         .join(genome_idx.bai)
     SAMTOOLS_IDXSTATS(genome_bam)
     genome_bam
-        .view()
+        // .view()
+
+    if (params.region) {
+        SAMTOOLS_VIEW_REGION(genome_bam, fasta_with_meta, [], 'bai')
+    }    
     only_mapped = SAMTOOLS_VIEW(genome_bam, fasta_with_meta, [], 'bai')
     TOULLIGQC_GENOME(only_mapped.bam)
     // Old Salmon quantification steps
