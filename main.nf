@@ -50,7 +50,7 @@ workflow {
         .set { fastq_files }
 
     gene_gtf = GFF_TO_GTF_GENOME(gene_annotation, params.extension)
-    combined = COMBINE_FASTA_ANNOTATION(plasmid_fasta_ch.ifEmpty([]), genome_fasta, plasmid_gtf.ifEmpty([]), gene_gtf)
+    combined = COMBINE_FASTA_ANNOTATION(genome_fasta, plasmid_fasta_ch.ifEmpty([]), gene_gtf, plasmid_gtf.ifEmpty([]))
     // combined.out.view()
     gff_with_meta = combined.annotation
                         .map { file -> tuple([id: file.baseName, name: file.baseName], file) }
