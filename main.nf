@@ -56,7 +56,7 @@ workflow {
                         .map { file -> tuple([id: file.baseName, name: file.baseName], file) }
     fasta_with_meta = combined.fasta
                         .map { file -> tuple([id: file.baseName, name: file.baseName], file) }
-    
+
     // get gtf with transcripts and exons
     gtf_with_txs = GFFREAD_GTF(gff_with_meta, combined.fasta)
     // gtf_with_txs.gtf
@@ -81,12 +81,12 @@ workflow {
 
     // ISOQUANT(filtered_reads, combined.fasta, combined.annotation)
 
-    align_output = MINIMAP2_ALIGN(filtered_reads, tx_output.gffread_fasta, true, '', false, true)
+    align_output = MINIMAP2_ALIGN(filtered_reads, tx_output.gffread_fasta, "bam", "bai", false, true)
     // align_output.bam
     //     .view()
-    
+
     // Map reads to genome fasta
-    genome_align_output = MINIMAP2_ALIGN_GENOME(filtered_reads, fasta_with_meta, true, '', false, true)
+    genome_align_output = MINIMAP2_ALIGN_GENOME(filtered_reads, fasta_with_meta, "bam", "bai", false, true)
     genome_idx = SAMTOOLS_INDEX(genome_align_output.bam)
     genome_bam = genome_align_output.bam
         .join(genome_idx.bai)
@@ -96,7 +96,7 @@ workflow {
 
     if (params.region) {
         SAMTOOLS_VIEW_REGION(genome_bam, fasta_with_meta, [], 'bai')
-    }    
+    }
     only_mapped = SAMTOOLS_VIEW(genome_bam, fasta_with_meta, [], 'bai')
     TOULLIGQC_GENOME(only_mapped.bam)
     // Old Salmon quantification steps
@@ -109,7 +109,7 @@ workflow {
     // SAMTOOLS_IDXSTATS_TX(tx_bam)
     // only_tx_mapped = SAMTOOLS_VIEW_TX(tx_bam, tx_output.gffread_fasta, [], 'bai')
     // SALMON_QUANT(align_output.bam, combined.annotation, fasta_alone, true, 'A')
-    
+
     // Quantifie with stringtie
     stringtie_res = STRINGTIE_STRINGTIE(genome_align_output.bam, gff_alone)
     stringtie_res.transcript_gtf
