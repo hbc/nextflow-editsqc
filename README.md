@@ -38,6 +38,34 @@ Inputs are provided via Nextflow parameters, either in the command line or in a 
 - `--plasmid_annotation` : (Optional) Path to plasmid annotation file
 - `--region` : (Optional) Chromosome or region to subset annotation
 
+
+### Specific details about FASTA and GTF
+
+Below are specific formatting rules and examples to ensure your FASTA and GFF/GTF inputs are compatible with the pipeline.
+
+- FASTA (genome or transcriptome)
+  - Headers must start with a single '>' character followed by a unique sequence identifier (sequence IDs are used to match annotation seqids). Avoid spaces in the primary ID; use underscores if needed.
+    - Good: `>chromosome` or `>plasmid_1` or `>TAC.gene01.1`
+    - Avoid: `>chromosome 1 description` (the space makes the full header the ID)
+  - The sequence identifier in the FASTA header must exactly match the seqid fields used in your GFF/GTF (case-sensitive).
+  - Sequence lines may be wrapped; the pipeline will read standard FASTA wrapping.
+
+- GFF3 (annotation)
+  - The pipeline accepts GFF3. For best results follow these rules:
+    - Seqids (first column) must match FASTA headers exactly (e.g., `chromosome`, `plasmid`, or transcript IDs used in transcriptome FASTA).
+    - Use 1-based inclusive coordinates (standard GFF convention).
+    - For GFF3: ensure feature lines include `Name`, `ID` and `Parent` attributes where appropriate (gene/mRNA/exon). Example GFF3 line:
+      `plasmid\tmaker\tmRNA\t2501\t3500\t.\t+\t.\tID=TAC.plasmid_gene01.1;Name=gene1;Parent=geneX;`
+  - If your GFF contains attributes or naming conventions that do not include `gene_id`/`transcript_id`, the pipeline's `gffread` and conversion modules attempt to translate common patterns, but explicit attributes are more reliable.
+
+- Common pitfalls and tips
+  - Mismatched seqids (FASTA header vs GFF seqid column) are the most frequent source of problems — check these first if features or mapping counts are missing.
+  - Ensure no duplicate sequence IDs in FASTA; tools (StringTie) require unique IDs.
+  - GFF3 multi-line attributes or unusual quoting can sometimes break parsers; provide standard, single-line attribute fields.
+  - Provide a GFF3 — if you have GFF3 the pipeline will convert to GTF for StringTie where needed.
+
+## Running the pipeline
+
 Example command:
 ```bash
 nextflow run main.nf --fastq_files 'data/*.fastq' --genome_fasta 'ref/genome.fa' --gene_annotation 'ref/genes.gff'
