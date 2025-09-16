@@ -86,6 +86,12 @@ The pipeline writes all results to the `results/` directory (or a custom `--outd
     - `nanopore_reads.bam.bai` — BAM index for transcriptome alignments.
     - `nanopore_reads.idxstats` — mapping counts per transcript.
 
+
+- `stringtie_new/`
+  - `nanopore_reads.transcripts.gtf` — transcripts assembled by StringTie from the sample BAM.
+  - `nanopore_reads.coverage.gtf` — coverage tracks produced by StringTie (`-C` option) showing assembled loci coverage.
+  - `nanopore_reads.gene.abundance.txt` — gene-level abundance table with Coverage, FPKM, and TPM columns.
+
 ### Complementary output files
 
 - `filtered_reads/`
