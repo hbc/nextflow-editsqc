@@ -56,7 +56,8 @@ workflow {
 
     gene_gtf = GFF_TO_GTF_GENOME(gene_annotation, params.extension)
     combined = COMBINE_FASTA_ANNOTATION(genome_fasta, plasmid_fasta_ch.ifEmpty([]), gene_gtf, plasmid_gtf.ifEmpty([]))
-    
+
+    // sort, zip, and index combined gtf
     combined_sorted = SORT_GTF(combined.annotation)
     combined_sorted_with_meta = combined_sorted.gtf
                         .map { file -> tuple([id: file.baseName, name: file.baseName], file) }
