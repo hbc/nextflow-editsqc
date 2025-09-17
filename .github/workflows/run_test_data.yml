@@ -28,4 +28,4 @@ jobs:
 
       - name: Run Nextflow pipeline on test data
         run: |
-          nextflow run main.nf -profile test,docker
+          nextflow run main.nf -profile test,docker -process.memory 1.GB
