@@ -30,7 +30,9 @@ include { SAMTOOLS_IDXSTATS } from './modules/nf-core/samtools/idxstats'
 include { SAMTOOLS_INDEX as SAMTOOLS_INDEX_TX }   from './modules/nf-core/samtools/index'
 include { SAMTOOLS_IDXSTATS as SAMTOOLS_IDXSTATS_TX } from './modules/nf-core/samtools/idxstats'
 include { SAMTOOLS_VIEW as SAMTOOLS_VIEW_TX } from './modules/nf-core/samtools/view'
-include { IGVREPORTS } from './modules/nf-core/igvreports/main'                                                                                                       
+include { IGVREPORTS } from './modules/nf-core/igvreports/main'
+include { SORT_GTF } from './modules/custom/sort_gtf' 
+include { TABIX_BGZIPTABIX } from './modules/nf-core/tabix/bgziptabix/main'                                                                                                                                              
 include { PIPELINE_INFO } from './modules/custom/pipeline_info'
 
 workflow {
@@ -54,7 +56,12 @@ workflow {
 
     gene_gtf = GFF_TO_GTF_GENOME(gene_annotation, params.extension)
     combined = COMBINE_FASTA_ANNOTATION(genome_fasta, plasmid_fasta_ch.ifEmpty([]), gene_gtf, plasmid_gtf.ifEmpty([]))
-    // combined.out.view()
+    
+    combined_sorted = SORT_GTF(combined.annotation)
+    combined_sorted_with_meta = combined_sorted.gtf
+                        .map { file -> tuple([id: file.baseName, name: file.baseName], file) }
+    TABIX_BGZIPTABIX(combined_sorted_with_meta)
+
     gff_with_meta = combined.annotation
                         .map { file -> tuple([id: file.baseName, name: file.baseName], file) }
     fasta_with_meta = combined.fasta
