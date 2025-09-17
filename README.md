@@ -19,7 +19,7 @@ The pipeline performs the following steps:
    Converts GFF annotations to GTF format and subsets annotations by region if specified.
 
 5. **Transcriptome Assembly & Quantification**
-   Assembles transcripts and quantifies expression using StringTie and Salmon.
+   Assembles transcripts and quantifies expression using StringTie.
 
 6. **Quality Control**
    Performs QC on mapped reads and generates summary statistics.
@@ -33,21 +33,21 @@ Inputs are provided via Nextflow parameters, either in the command line or in a 
 
 - `--fastq_files` : Path pattern to input FASTQ files (e.g., `data/*.fastq`)
 - `--genome_fasta` : Path to reference genome FASTA file
-- `--gene_annotation` : Path to genome annotation file (GFF or GTF)
+- `--gene_annotation` : Path to genome annotation file (GFF)
 - `--plasmid_fasta` : (Optional) Path to plasmid FASTA file
 - `--plasmid_annotation` : (Optional) Path to plasmid annotation file
 - `--region` : (Optional) Chromosome or region to subset annotation
 
 
-### Specific details about FASTA and GTF
+### Specific details about FASTA and GFF
 
-Below are specific formatting rules and examples to ensure your FASTA and GFF/GTF inputs are compatible with the pipeline.
+Below are specific formatting rules and examples to ensure your FASTA and GFF inputs are compatible with the pipeline.
 
 - FASTA (genome or transcriptome)
   - Headers must start with a single '>' character followed by a unique sequence identifier (sequence IDs are used to match annotation seqids). Avoid spaces in the primary ID; use underscores if needed.
     - Good: `>chromosome` or `>plasmid_1` or `>TAC.gene01.1`
     - Avoid: `>chromosome 1 description` (the space makes the full header the ID)
-  - The sequence identifier in the FASTA header must exactly match the seqid fields used in your GFF/GTF (case-sensitive).
+  - The sequence identifier in the FASTA header must exactly match the seqid fields used in your GFF (case-sensitive).
   - Sequence lines may be wrapped; the pipeline will read standard FASTA wrapping.
 
 - GFF3 (annotation)
