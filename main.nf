@@ -19,19 +19,24 @@ include { STRINGTIE_STRINGTIE as STRINGTIE_QUANT} from './modules/nf-core/string
 include { REPLACE_GENEID_WITH_REF } from './modules/custom/replace_geneid_with_ref'
 include { GFF_TO_GTF as GFF_TO_GTF_PLASMID} from './modules/custom/gff_to_gtf'
 include { GFF_TO_GTF as GFF_TO_GTF_GENOME} from './modules/custom/gff_to_gtf'
+include { GTF_TO_REGION_BED } from './modules/custom/gtf_to_region_bed'
 include { COMBINE_FASTA_ANNOTATION } from './modules/custom/combine_fasta_annotation'
 include { FILTER_LONG_READS } from './modules/custom/filter_long_reads'
 include { SAMTOOLS_VIEW }   from './modules/nf-core/samtools/view'
 include { SAMTOOLS_VIEW as SAMTOOLS_VIEW_REGION }   from './modules/nf-core/samtools/view'
 include { SAMTOOLS_INDEX }   from './modules/nf-core/samtools/index'
+include { SAMTOOLS_FAIDX }   from './modules/nf-core/samtools/faidx'
 include { SAMTOOLS_IDXSTATS } from './modules/nf-core/samtools/idxstats'
 include { SAMTOOLS_INDEX as SAMTOOLS_INDEX_TX }   from './modules/nf-core/samtools/index'
 include { SAMTOOLS_IDXSTATS as SAMTOOLS_IDXSTATS_TX } from './modules/nf-core/samtools/idxstats'
 include { SAMTOOLS_VIEW as SAMTOOLS_VIEW_TX } from './modules/nf-core/samtools/view'
+include { IGVREPORTS } from './modules/nf-core/igvreports/main'
+include { SORT_GTF } from './modules/custom/sort_gtf' 
+include { TABIX_BGZIPTABIX } from './modules/nf-core/tabix/bgziptabix/main'                                                                                                                                              
 include { PIPELINE_INFO } from './modules/custom/pipeline_info'
 
 workflow {
-    println(params)
+    // println(params)
     Channel.fromPath(params.genome_fasta, checkIfExists: true)
         .set { genome_fasta }
     Channel.fromPath(params.gene_annotation, checkIfExists: true)
@@ -51,11 +56,20 @@ workflow {
 
     gene_gtf = GFF_TO_GTF_GENOME(gene_annotation, params.extension)
     combined = COMBINE_FASTA_ANNOTATION(genome_fasta, plasmid_fasta_ch.ifEmpty([]), gene_gtf, plasmid_gtf.ifEmpty([]))
-    // combined.out.view()
+
+    // sort, zip, and index combined gtf
+    combined_sorted = SORT_GTF(combined.annotation)
+    combined_sorted_with_meta = combined_sorted.gtf
+                        .map { file -> tuple([id: file.baseName, name: file.baseName], file) }
+    TABIX_BGZIPTABIX(combined_sorted_with_meta)
+
     gff_with_meta = combined.annotation
                         .map { file -> tuple([id: file.baseName, name: file.baseName], file) }
     fasta_with_meta = combined.fasta
                         .map { file -> tuple([id: file.baseName, name: file.baseName], file) }
+    
+    SAMTOOLS_FAIDX(fasta_with_meta, [[],[]], false)
+
 
     // get gtf with transcripts and exons
     gtf_with_txs = GFFREAD_GTF(gff_with_meta, combined.fasta)
@@ -95,8 +109,42 @@ workflow {
         // .view()
 
     if (params.region) {
-        SAMTOOLS_VIEW_REGION(genome_bam, fasta_with_meta, [], 'bai')
-    }
+        view_region = SAMTOOLS_VIEW_REGION(genome_bam, fasta_with_meta, [], 'bai')
+
+        combined.annotation
+            .map { file -> tuple(file, params.region) }
+            .set { gtf_region_ch }
+        region_bed = GTF_TO_REGION_BED(gtf_region_ch)
+
+        // prep inputs for igvreports
+        meta_ch = fasta_with_meta.map { tuple -> tuple[0] }
+        sites_ch = region_bed.bed
+        tracks_ch = view_region.bam
+            .map { tuple -> [tuple[1]] }
+            .combine(combined.annotation)
+        tracks_indices_ch = view_region.bai.map { tuple -> [tuple[1]] }
+
+        fasta_ch = combined.fasta
+        fai_ch = combined.fasta.map { fasta -> file("${fasta}.fai") }
+
+        igv_input_ch = meta_ch
+            .combine(sites_ch)
+            .combine(tracks_ch)  
+            .combine(tracks_indices_ch)
+            .map { meta, sites, tracks_0, tracks_1, tracks_indices ->
+                [meta, sites, [tracks_1, tracks_0], tracks_indices]
+            }
+        igv_input_ch.view { "igv input: $it" }
+
+        fasta_input_ch = meta_ch
+            .combine(fasta_ch)
+            .combine(fai_ch)
+            .map { meta, fasta, fai -> tuple(meta, fasta, fai) }
+        fasta_input_ch.view { "fasta input: $it" }
+
+        IGVREPORTS(igv_input_ch, fasta_input_ch)
+    }    
+
     only_mapped = SAMTOOLS_VIEW(genome_bam, fasta_with_meta, [], 'bai')
     TOULLIGQC_GENOME(only_mapped.bam)
     // Old Salmon quantification steps
@@ -120,6 +168,8 @@ workflow {
     stringtie_new = STRINGTIE_MERGE(string_gtf_alone, gff_alone)
     stringtie_fixed = REPLACE_GENEID_WITH_REF(stringtie_new.gtf)
     STRINGTIE_QUANT(genome_align_output.bam, stringtie_fixed.gtf)
+
+
     // Create a pipeline info file and publish it
     pipeline_info = PIPELINE_INFO()
 
