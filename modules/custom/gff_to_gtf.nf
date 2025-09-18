@@ -5,6 +5,7 @@ process GFF_TO_GTF {
 
     input:
     path plasmid_annotation
+    val valid_features
     val extension
 
     output:
@@ -24,6 +25,6 @@ process GFF_TO_GTF {
         cp "\$infile" input.gtf
     fi
 
-    gff_to_gtf.py input.gtf -o ${plasmid_annotation.baseName}.fixed.gtf -e $extension
+    gff_to_gtf.py input.gtf -o ${plasmid_annotation.baseName}.fixed.gtf -v $valid_features -e $extension
     """
 }

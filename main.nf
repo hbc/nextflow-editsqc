@@ -31,8 +31,8 @@ include { SAMTOOLS_INDEX as SAMTOOLS_INDEX_TX }   from './modules/nf-core/samtoo
 include { SAMTOOLS_IDXSTATS as SAMTOOLS_IDXSTATS_TX } from './modules/nf-core/samtools/idxstats'
 include { SAMTOOLS_VIEW as SAMTOOLS_VIEW_TX } from './modules/nf-core/samtools/view'
 include { IGVREPORTS } from './modules/nf-core/igvreports/main'
-include { SORT_GTF } from './modules/custom/sort_gtf' 
-include { TABIX_BGZIPTABIX } from './modules/nf-core/tabix/bgziptabix/main'                                                                                                                                              
+include { SORT_GTF } from './modules/custom/sort_gtf'
+include { TABIX_BGZIPTABIX } from './modules/nf-core/tabix/bgziptabix/main'
 include { PIPELINE_INFO } from './modules/custom/pipeline_info'
 
 workflow {
@@ -44,7 +44,7 @@ workflow {
     plasmid_annotation_ch = params.plasmid_annotation ? Channel.fromPath(params.plasmid_annotation, checkIfExists: true) : Channel.empty()
     plasmid_fasta_ch = params.plasmid_fasta ? Channel.fromPath(params.plasmid_fasta, checkIfExists: true) : Channel.empty()
     if (params.plasmid_annotation){
-        plasmid_gtf = GFF_TO_GTF_PLASMID(plasmid_annotation_ch, params.extension)
+        plasmid_gtf = GFF_TO_GTF_PLASMID(plasmid_annotation_ch, params.valid_features, params.extension)
     } else {
         plasmid_gtf = Channel.empty()
     }
@@ -54,7 +54,7 @@ workflow {
         //.view()
         .set { fastq_files }
 
-    gene_gtf = GFF_TO_GTF_GENOME(gene_annotation, params.extension)
+    gene_gtf = GFF_TO_GTF_GENOME(gene_annotation, params.valid_features, params.extension)
     combined = COMBINE_FASTA_ANNOTATION(genome_fasta, plasmid_fasta_ch.ifEmpty([]), gene_gtf, plasmid_gtf.ifEmpty([]))
 
     // sort, zip, and index combined gtf
@@ -67,7 +67,7 @@ workflow {
                         .map { file -> tuple([id: file.baseName, name: file.baseName], file) }
     fasta_with_meta = combined.fasta
                         .map { file -> tuple([id: file.baseName, name: file.baseName], file) }
-    
+
     SAMTOOLS_FAIDX(fasta_with_meta, [[],[]], false)
 
 
@@ -129,7 +129,7 @@ workflow {
 
         igv_input_ch = meta_ch
             .combine(sites_ch)
-            .combine(tracks_ch)  
+            .combine(tracks_ch)
             .combine(tracks_indices_ch)
             .map { meta, sites, tracks_0, tracks_1, tracks_indices ->
                 [meta, sites, [tracks_1, tracks_0], tracks_indices]
@@ -143,7 +143,7 @@ workflow {
         fasta_input_ch.view { "fasta input: $it" }
 
         IGVREPORTS(igv_input_ch, fasta_input_ch)
-    }    
+    }
 
     only_mapped = SAMTOOLS_VIEW(genome_bam, fasta_with_meta, [], 'bai')
     TOULLIGQC_GENOME(only_mapped.bam)
