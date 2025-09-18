@@ -134,13 +134,13 @@ workflow {
             .map { meta, sites, tracks_0, tracks_1, tracks_indices ->
                 [meta, sites, [tracks_1, tracks_0], tracks_indices]
             }
-        igv_input_ch.view { "igv input: $it" }
+        // igv_input_ch.view { "igv input: $it" }
 
         fasta_input_ch = meta_ch
             .combine(fasta_ch)
             .combine(fai_ch)
             .map { meta, fasta, fai -> tuple(meta, fasta, fai) }
-        fasta_input_ch.view { "fasta input: $it" }
+        // fasta_input_ch.view { "fasta input: $it" }
 
         IGVREPORTS(igv_input_ch, fasta_input_ch)
     }
