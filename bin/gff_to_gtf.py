@@ -12,7 +12,7 @@ def parse_attributes(attr_str):
             attrs[key.strip()] = value.strip()
     return attrs
 
-def convert_gff_to_gtf(gff_file, output=sys.stdout, extension=50):
+def convert_gff_to_gtf(gff_file, valid_features, output=sys.stdout, extension=50):
     id_counts = defaultdict(int)
 
     with open(gff_file, 'r') as infile:
@@ -27,7 +27,6 @@ def convert_gff_to_gtf(gff_file, output=sys.stdout, extension=50):
 
             seqid, source, feature_type, start, end, score, strand, phase, attributes = cols
 
-            valid_features = {'gene', 'CDS', 'transcription_unit', 'tRNA', 'rRNA'}
             if feature_type not in valid_features:
                 print(f"Skipping invalid feature type: {feature_type}", file=sys.stderr)
                 continue  # Skip invalid feature types
@@ -61,13 +60,14 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description="Convert GFF to GTF with gene_id from Name or ID, and extend coordinates by 50nt.")
     parser.add_argument("gff_file", help="Input GFF file")
+    parser.add_argument("-v", "--valid_features", nargs='+', help="List of valid feature types to include", required=True)
     parser.add_argument("-o", "--output", help="Output GTF file (default: stdout)", default=None)
     parser.add_argument("-e", "--extension", help="Number of nucleotides to extend at start/end", type=int, default=50)
 
     args = parser.parse_args()
     output = open(args.output, 'w') if args.output else sys.stdout
 
-    convert_gff_to_gtf(args.gff_file, output=output, extension=args.extension)
+    convert_gff_to_gtf(args.gff_file, args.valid_features, output=output, extension=args.extension)
 
     if output is not sys.stdout:
         output.close()

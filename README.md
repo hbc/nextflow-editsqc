@@ -37,7 +37,7 @@ Inputs are provided via Nextflow parameters, either in the command line or in a 
 - `--plasmid_fasta` : (Optional) Path to plasmid FASTA file
 - `--plasmid_annotation` : (Optional) Path to plasmid annotation file
 - `--region` : (Optional) Chromosome or region to subset annotation
-
+- `--valid_features` : Space-separated list of feature types present in GFF to be used for quantification. Default: "gene CDS transcription_unit tRNA rRNA"
 
 ### Specific details about FASTA and GFF
 
