@@ -11,12 +11,29 @@ process COMBINE_FASTA_ANNOTATION {
     path plasmid_annotation
 
     output:
-    path 'combined.fasta', emit: fasta
-    path 'combined.gtf', emit: annotation
+    path '*combined.fasta', emit: fasta
+    path '*combined.gtf', emit: annotation
 
     script:
+    // Dynamic extension removal based on file type
+    genome_name = genome_fasta.getBaseName(genome_fasta.name.endsWith('.gz') ? 2 : 1)
+    plasmid_name = plasmid_fasta ? plasmid_fasta.getBaseName(plasmid_fasta.name.endsWith('.gz') ? 2 : 1) : ''
+
     """
     set -euo pipefail
+
+    # Get base names for output
+    GENOME_BASENAME="${genome_name}"
+    PLASMID_BASENAME=""
+    if [[ "${plasmid_fasta}" != "NO_FILE" && -n "${plasmid_fasta}" ]]; then
+        PLASMID_BASENAME="${plasmid_name}"
+    fi
+    SUFFIX="combined"
+    if [[ -n "\$PLASMID_BASENAME" ]]; then
+        OUT_PREFIX="\${GENOME_BASENAME}_\${PLASMID_BASENAME}_\${SUFFIX}"
+    else
+        OUT_PREFIX="\${GENOME_BASENAME}_\${SUFFIX}"
+    fi
 
     # Handle genome fasta decompression if needed
     GENOME_FILE="${genome_fasta}"
@@ -50,15 +67,15 @@ process COMBINE_FASTA_ANNOTATION {
     # Combine annotations
     if [[ "${plasmid_annotation}" != "NO_FILE" && -n "${plasmid_annotation}" ]]; then
         echo "Combining genome and plasmid annotations"
-        cat "${gene_annotation}" "${plasmid_annotation}" > combined.gtf
+        cat "${gene_annotation}" "${plasmid_annotation}" > "\${OUT_PREFIX}.gtf"
     else
         echo "Using genome annotation only"
-        cp "${gene_annotation}" combined.gtf
+        cp "${gene_annotation}" "\${OUT_PREFIX}.gtf"
     fi
 
     # Format final FASTA with consistent line length
-    seqtk seq -l 80 tmp.fasta > combined.fasta
-    
-    echo "Combined FASTA and GTF files created successfully"
+    seqtk seq -l 80 tmp.fasta > "\${OUT_PREFIX}.fasta"
+
+    echo "Combined FASTA and GTF files created successfully: \${OUT_PREFIX}.fasta, \${OUT_PREFIX}.gtf"
     """
 }

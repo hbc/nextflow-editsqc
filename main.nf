@@ -2,179 +2,79 @@
 
 nextflow.enable.dsl=2
 
-
-include { ISOQUANT } from './modules/nf-core/isoquant'
-include { TOULLIGQC } from './modules/nf-core/toulligqc'
-include { TOULLIGQC as TOULLIGQC_GENOME } from './modules/nf-core/toulligqc'
-include { GFFREAD as GFFREAD_FASTA} from './modules/nf-core/gffread'
-include { GFFREAD as GFFREAD_GTF } from './modules/nf-core/gffread'
-include { MINIMAP2_ALIGN } from './modules/nf-core/minimap2/align'
-include { MINIMAP2_ALIGN as MINIMAP2_ALIGN_GENOME } from './modules/nf-core/minimap2/align'
-// include { SALMON_QUANT } from './modules/nf-core/salmon/quant'
-// include { SALMON_QUANT as SALMON_QUANT_TX } from './modules/nf-core/salmon/quant'
-// include { SALMON_INDEX } from './modules/nf-core/salmon/index'
-include { STRINGTIE_STRINGTIE } from './modules/nf-core/stringtie/stringtie'
-include { STRINGTIE_MERGE } from './modules/nf-core/stringtie/merge'
-include { STRINGTIE_STRINGTIE as STRINGTIE_QUANT} from './modules/nf-core/stringtie/stringtie'
-include { REPLACE_GENEID_WITH_REF } from './modules/custom/replace_geneid_with_ref'
-include { GFF_TO_GTF as GFF_TO_GTF_PLASMID} from './modules/custom/gff_to_gtf'
-include { GFF_TO_GTF as GFF_TO_GTF_GENOME} from './modules/custom/gff_to_gtf'
-include { GTF_TO_REGION_BED } from './modules/custom/gtf_to_region_bed'
-include { COMBINE_FASTA_ANNOTATION } from './modules/custom/combine_fasta_annotation'
-include { FILTER_LONG_READS } from './modules/custom/filter_long_reads'
-include { SAMTOOLS_VIEW }   from './modules/nf-core/samtools/view'
-include { SAMTOOLS_VIEW as SAMTOOLS_VIEW_REGION }   from './modules/nf-core/samtools/view'
-include { SAMTOOLS_INDEX }   from './modules/nf-core/samtools/index'
-include { SAMTOOLS_FAIDX }   from './modules/nf-core/samtools/faidx'
-include { SAMTOOLS_IDXSTATS } from './modules/nf-core/samtools/idxstats'
-include { SAMTOOLS_INDEX as SAMTOOLS_INDEX_TX }   from './modules/nf-core/samtools/index'
-include { SAMTOOLS_IDXSTATS as SAMTOOLS_IDXSTATS_TX } from './modules/nf-core/samtools/idxstats'
-include { SAMTOOLS_VIEW as SAMTOOLS_VIEW_TX } from './modules/nf-core/samtools/view'
-include { IGVREPORTS } from './modules/nf-core/igvreports/main'
-include { SORT_GTF } from './modules/custom/sort_gtf'
-include { TABIX_BGZIPTABIX } from './modules/nf-core/tabix/bgziptabix/main'
-include { PIPELINE_INFO } from './modules/custom/pipeline_info'
+include { MAIN_ANALYSIS } from './subworkflows/local/main_analysis'
 
 workflow {
-    // println(params)
-    Channel.fromPath(params.genome_fasta, checkIfExists: true)
-        .set { genome_fasta }
-    Channel.fromPath(params.gene_annotation, checkIfExists: true)
-        .set { gene_annotation }
-    plasmid_annotation_ch = params.plasmid_annotation ? Channel.fromPath(params.plasmid_annotation, checkIfExists: true) : Channel.empty()
-    plasmid_fasta_ch = params.plasmid_fasta ? Channel.fromPath(params.plasmid_fasta, checkIfExists: true) : Channel.empty()
-    if (params.plasmid_annotation){
-        plasmid_gtf = GFF_TO_GTF_PLASMID(plasmid_annotation_ch, params.valid_features, params.extension)
-    } else {
-        plasmid_gtf = Channel.empty()
-    }
+    // Create input channels
+    // Channel.fromPath(params.genome_fasta, checkIfExists: true)
+    //     .set { genome_fasta }
 
-    Channel.fromFilePairs(params.fastq_files, flat: true)
-        .map { id, file -> tuple([id: id, name: file.baseName, single_end: params.single_end], file) }
-        //.view()
-        .set { fastq_files }
+    // Channel.fromPath(params.gene_annotation, checkIfExists: true)
+    //     .set { gene_annotation }
 
-    gene_gtf = GFF_TO_GTF_GENOME(gene_annotation, params.valid_features, params.extension)
-    combined = COMBINE_FASTA_ANNOTATION(genome_fasta, plasmid_fasta_ch.ifEmpty([]), gene_gtf, plasmid_gtf.ifEmpty([]))
+    // plasmid_annotation_ch = params.plasmid_annotation ?
+    //     Channel.fromPath(params.plasmid_annotation, checkIfExists: true) :
+    //     Channel.empty()
 
-    // sort, zip, and index combined gtf
-    combined_sorted = SORT_GTF(combined.annotation)
-    combined_sorted_with_meta = combined_sorted.gtf
-                        .map { file -> tuple([id: file.baseName, name: file.baseName], file) }
-    TABIX_BGZIPTABIX(combined_sorted_with_meta)
+    // plasmid_fasta_ch = params.plasmid_fasta ?
+    //     Channel.fromPath(params.plasmid_fasta, checkIfExists: true) :
+    //     Channel.empty()
 
-    gff_with_meta = combined.annotation
-                        .map { file -> tuple([id: file.baseName, name: file.baseName], file) }
-    fasta_with_meta = combined.fasta
-                        .map { file -> tuple([id: file.baseName, name: file.baseName], file) }
+    // Channel.fromFilePairs(params.fastq_files, flat: true)
+    //     .map { id, file -> tuple([id: id, name: file.baseName, single_end: params.single_end], file) }
+    //     .set { fastq_files }
 
-    SAMTOOLS_FAIDX(fasta_with_meta, [[],[]], false)
-
-
-    // get gtf with transcripts and exons
-    gtf_with_txs = GFFREAD_GTF(gff_with_meta, combined.fasta)
-    // gtf_with_txs.gtf
-    //     .view()
-    // get the transcript fasta file
-    tx_output = GFFREAD_FASTA(gtf_with_txs.gtf, combined.fasta)
-    // tx_output.gffread_fasta
+    // // Combine all inputs into a single tuple channel
+    // input_tuple_ch = genome_fasta
+    //     .combine(gene_annotation)
+    //     .combine(plasmid_annotation_ch.ifEmpty([]))
+    //     .combine(plasmid_fasta_ch.ifEmpty([]))
+    //     .combine(fastq_files)
+    //     //.combine(Channel.value(params.valid_features))
+    //     //.combine(Channel.value(params.extension))
+    //     //.combine(Channel.value(params.single_end))
+    //     .combine(Channel.value(params.region))
     //     .view()
 
-    tx_output.gffread_fasta
-        .map { tuple -> tuple[1] }
-        // .view()
-        .set { fasta_alone }
-    gtf_with_txs.gtf
-        .map { tuple -> tuple[1] }
-        // .view()
-        .set { gff_alone }
+// Read the samplesheet and create input channels
+    Channel.fromPath(params.input, checkIfExists: true)
+        .splitCsv(header: true)
+        .map { row ->
+            // Create metadata map
+            def meta = [id: row.sample, name: row.sample, single_end: params.single_end]
 
-    filtered_reads = FILTER_LONG_READS(fastq_files)
+            // Process fastq files - handle both single files and file pairs
+            def fastq_file = file(row.fastq_files, checkIfExists: true)
+            def fastq_tuple = tuple(meta, fastq_file)
 
-    TOULLIGQC(filtered_reads)
+            // Create file objects for required files
+            def genome_fasta = file(row.genome_fasta, checkIfExists: true)
+            def gene_annotation = file(row.gene_annotation, checkIfExists: true)
 
-    // ISOQUANT(filtered_reads, combined.fasta, combined.annotation)
+            // Handle optional plasmid files
+            def plasmid_fasta = row.plasmid_fasta && row.plasmid_fasta != '' ?
+                file(row.plasmid_fasta, checkIfExists: true) : null
+            def plasmid_annotation = row.plasmid_annotation && row.plasmid_annotation != '' ?
+                file(row.plasmid_annotation, checkIfExists: true) : null
 
-    align_output = MINIMAP2_ALIGN(filtered_reads, tx_output.gffread_fasta, "bam", "bai", false, true)
-    // align_output.bam
-    //     .view()
+            // Create the input tuple matching your current structure
+            return tuple(
+                genome_fasta,
+                gene_annotation,
+                plasmid_annotation,
+                plasmid_fasta,
+                fastq_tuple,
+                row.region
+            )
+        }
+        .set { input_tuple_ch }
 
-    // Map reads to genome fasta
-    genome_align_output = MINIMAP2_ALIGN_GENOME(filtered_reads, fasta_with_meta, "bam", "bai", false, true)
-    genome_idx = SAMTOOLS_INDEX(genome_align_output.bam)
-    genome_bam = genome_align_output.bam
-        .join(genome_idx.bai)
-    SAMTOOLS_IDXSTATS(genome_bam)
-    genome_bam
-        // .view()
+    // View the processed input tuples
+    // input_tuple_ch.view()
+    // Run the main analysis subworkflow with single tuple input
+    MAIN_ANALYSIS(input_tuple_ch, params.valid_features, params.extension, params.single_end)
 
-    if (params.region) {
-        view_region = SAMTOOLS_VIEW_REGION(genome_bam, fasta_with_meta, [], 'bai')
-
-        combined.annotation
-            .map { file -> tuple(file, params.region) }
-            .set { gtf_region_ch }
-        region_bed = GTF_TO_REGION_BED(gtf_region_ch)
-
-        // prep inputs for igvreports
-        meta_ch = fasta_with_meta.map { tuple -> tuple[0] }
-        sites_ch = region_bed.bed
-        tracks_ch = view_region.bam
-            .map { tuple -> [tuple[1]] }
-            .combine(combined.annotation)
-        tracks_indices_ch = view_region.bai.map { tuple -> [tuple[1]] }
-
-        fasta_ch = combined.fasta
-        fai_ch = combined.fasta.map { fasta -> file("${fasta}.fai") }
-
-        igv_input_ch = meta_ch
-            .combine(sites_ch)
-            .combine(tracks_ch)
-            .combine(tracks_indices_ch)
-            .map { meta, sites, tracks_0, tracks_1, tracks_indices ->
-                [meta, sites, [tracks_1, tracks_0], tracks_indices]
-            }
-        // igv_input_ch.view { "igv input: $it" }
-
-        fasta_input_ch = meta_ch
-            .combine(fasta_ch)
-            .combine(fai_ch)
-            .map { meta, fasta, fai -> tuple(meta, fasta, fai) }
-        // fasta_input_ch.view { "fasta input: $it" }
-
-        IGVREPORTS(igv_input_ch, fasta_input_ch)
-    }
-
-    only_mapped = SAMTOOLS_VIEW(genome_bam, fasta_with_meta, [], 'bai')
-    TOULLIGQC_GENOME(only_mapped.bam)
-    // Old Salmon quantification steps
-    // Prepare gentrome and decoys for Salmon
-    // salmon_index = SALMON_INDEX(combined.fasta, fasta_alone)
-    // SALMON_QUANT(filtered_reads, salmon_index.index, combined.annotation, fasta_alone, false, 'A')
-    //     tx_idx = SAMTOOLS_INDEX_TX(align_output.bam)
-    // tx_bam = align_output.bam
-    //     .join(tx_idx.bai)
-    // SAMTOOLS_IDXSTATS_TX(tx_bam)
-    // only_tx_mapped = SAMTOOLS_VIEW_TX(tx_bam, tx_output.gffread_fasta, [], 'bai')
-    // SALMON_QUANT(align_output.bam, combined.annotation, fasta_alone, true, 'A')
-
-    // Quantifie with stringtie
-    stringtie_res = STRINGTIE_STRINGTIE(genome_align_output.bam, gff_alone)
-    stringtie_res.transcript_gtf
-        .map { tuple -> tuple[1] }
-        // .view()
-        .set { string_gtf_alone }
-
-    stringtie_new = STRINGTIE_MERGE(string_gtf_alone, gff_alone)
-    stringtie_fixed = REPLACE_GENEID_WITH_REF(stringtie_new.gtf)
-    STRINGTIE_QUANT(genome_align_output.bam, stringtie_fixed.gtf)
-
-
-    // Create a pipeline info file and publish it
-    pipeline_info = PIPELINE_INFO()
-
-    // Ensure it is available in the final workflow outputs (join to a channel used later)
-    // pipeline_info
-    //     .view()
-    //     .set { final_pipeline_info }
+    // Access outputs from the subworkflow
+    MAIN_ANALYSIS.out.combined_fasta.view { "Combined FASTA: $it" }
+    MAIN_ANALYSIS.out.pipeline_info.view { "Pipeline info: $it" }
 }

@@ -1,0 +1,2 @@
+sample,fastq_files,genome_fasta,gene_annotation,plasmid_fasta,plasmid_annotation,region
+sample1,./data/nanopore_reads.fastq.gz,./data/genome.fasta,./data/genome.gff,./data/plasmid.fasta,./data/plasmid.gff,plasmid

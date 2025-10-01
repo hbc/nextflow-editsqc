@@ -1,0 +1,11 @@
+[workspace]
+authors = ["Lorena Pantano <lorena.pantano@gmail.com>"]
+channels = ["conda-forge", "bioconda"]
+name = "nextflow-nanopore"
+platforms = ["osx-arm64"]
+version = "0.1.0"
+
+[tasks]
+
+[dependencies]
+nf-core = ">=3.3.2,<4"
