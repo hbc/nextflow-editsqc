@@ -2,7 +2,8 @@ process GTF_TO_REGION_BED {
     label 'process_low'
 
     input:
-    tuple path(gtf), val(region)
+    path gtf
+    val region
 
     output:
     path('regions.bed'), emit: bed

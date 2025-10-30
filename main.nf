@@ -41,7 +41,7 @@ workflow {
         .splitCsv(header: true)
         .map { row ->
             // Create metadata map
-            def meta = [id: row.sample, name: row.sample, single_end: params.single_end]
+            def meta = [id: row.sample, name: row.sample, single_end: params.single_end, region: row.region]
 
             // Process fastq files - handle both single files and file pairs
             def fastq_file = file(row.fastq_files, checkIfExists: true)

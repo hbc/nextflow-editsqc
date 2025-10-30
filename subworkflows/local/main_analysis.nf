@@ -2,7 +2,6 @@
 
 nextflow.enable.dsl=2
 
-include { ISOQUANT } from '../../modules/nf-core/isoquant'
 include { TOULLIGQC } from '../../modules/nf-core/toulligqc'
 include { TOULLIGQC as TOULLIGQC_GENOME } from '../../modules/nf-core/toulligqc'
 include { GFFREAD as GFFREAD_FASTA} from '../../modules/nf-core/gffread'
@@ -19,7 +18,7 @@ include { GTF_TO_REGION_BED } from '../../modules/custom/gtf_to_region_bed'
 include { COMBINE_FASTA_ANNOTATION } from '../../modules/custom/combine_fasta_annotation'
 include { FILTER_LONG_READS } from '../../modules/custom/filter_long_reads'
 include { SAMTOOLS_VIEW }   from '../../modules/nf-core/samtools/view'
-include { SAMTOOLS_VIEW as SAMTOOLS_VIEW_REGION }   from '../../modules/nf-core/samtools/view'
+include { SAMTOOLS_VIEW_REGION }   from '../../modules/custom/subset'
 include { SAMTOOLS_INDEX }   from '../../modules/nf-core/samtools/index'
 include { SAMTOOLS_FAIDX }   from '../../modules/nf-core/samtools/faidx'
 include { SAMTOOLS_IDXSTATS } from '../../modules/nf-core/samtools/idxstats'
@@ -49,6 +48,7 @@ workflow MAIN_ANALYSIS {
     // extension = input_tuple.map { it[6] }
     // single_end = input_tuple.map { it[7] }
     region = input_tuple.map { it[5] }
+    region = region.ifEmpty("[]")
     // Convert plasmid annotation if provided
     if (plasmid_annotation) {
         plasmid_gtf = GFF_TO_GTF_PLASMID(plasmid_annotation, valid_features, extension)
@@ -121,9 +121,9 @@ workflow MAIN_ANALYSIS {
         view_region = SAMTOOLS_VIEW_REGION(genome_bam, fasta_with_meta, [], 'bai')
 
         // Create BED file for region
-        gtf_region_ch = combined.annotation
-            .map { file -> tuple(file, region) }
-        region_bed = GTF_TO_REGION_BED(gtf_region_ch)
+        // gtf_region_ch = combined.annotation
+        //     .map { file -> tuple(file, region) }
+        region_bed = GTF_TO_REGION_BED(combined.annotation, region)
 
         // Prepare inputs for IGV reports
         meta_ch = fasta_with_meta.map { tuple -> tuple[0] }
