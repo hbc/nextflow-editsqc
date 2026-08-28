@@ -1,7 +1,7 @@
 {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "https://raw.githubusercontent.com/nf-core/nextflow-nanopore//nextflow_schema.json",
-    "title": "nextflow-nanopore for RNAseq",
+    "$id": "https://raw.githubusercontent.com/hbc/nextflow-editsqc/main/nextflow_schema.json",
+    "title": "nextflow-editsqc",
     "description": "Dedicated to QC gene insertions in host genomes",
     "type": "object",
     "$defs": {

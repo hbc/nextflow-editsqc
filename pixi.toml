@@ -1,7 +1,7 @@
 [workspace]
 authors = ["Lorena Pantano <lorena.pantano@gmail.com>"]
 channels = ["conda-forge", "bioconda"]
-name = "nextflow-nanopore"
+name = "nextflow-editsqc"
 platforms = ["osx-arm64"]
 version = "0.1.0"
 

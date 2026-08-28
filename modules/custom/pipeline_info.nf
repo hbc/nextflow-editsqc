@@ -13,7 +13,7 @@ process PIPELINE_INFO {
     set -euo pipefail
 
     cat > methods.txt <<'EOF'
-    Pipeline: nextflow-nanopore
+    Pipeline: nextflow-editsqc
     Description: Workflow information and modes used for this run
 
     Tools and modes:

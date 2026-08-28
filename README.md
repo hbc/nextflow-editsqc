@@ -1,10 +1,12 @@
-# Nextflow Nanopore Pipeline
+# nextflow-editsqc
 
 ## Introduction
 
-This pipeline provides a reproducible workflow for processing Oxford Nanopore sequencing data using Nextflow and nf-core modules. It automates key steps from raw read filtering to transcript quantification and report generation, leveraging containers for portability across systems.
+`nextflow-editsqc` is a reproducible workflow for quality control of gene insertions in host genomes. It automates the steps from raw read filtering to transcript quantification and report generation, using Nextflow and nf-core modules with containers for portability across systems.
 
-It is aimed at small genomes with optional plasmids: the genome and plasmid sequences and annotations are combined into a single reference, reads are aligned to both the genome and the transcriptome, and transcripts are assembled and quantified against the reference annotation.
+It is aimed at small genomes with optional plasmids: the genome and plasmid sequences and annotations are combined into a single reference, reads are aligned to both the genome and the transcriptome, and transcripts are assembled and quantified against the reference annotation. Region-specific IGV reports make it straightforward to inspect an edited locus directly.
+
+The pipeline currently processes Oxford Nanopore long reads. The name is platform-neutral so that short-read (Illumina) support can be added later without renaming.
 
 ## Requirements
 
