@@ -37,7 +37,7 @@ workflow {
     //     .view()
 
 // Read the samplesheet and create input channels
-    Channel.fromPath(params.input, checkIfExists: true)
+    channel.fromPath(params.input, checkIfExists: true)
         .splitCsv(header: true)
         .map { row ->
             // Create metadata map

@@ -39,21 +39,20 @@ workflow MAIN_ANALYSIS {
 
     main:
     // Extract individual components from the input tuple
-    genome_fasta = input_tuple.map { it[0] }
-    gene_annotation = input_tuple.map { it[1] }
-    plasmid_annotation = input_tuple.map { it[2] }
-    plasmid_fasta = input_tuple.map { it[3] }
-    fastq_files = input_tuple.map { it[4] }
+    genome_fasta = input_tuple.map { row -> row[0] }
+    gene_annotation = input_tuple.map { row -> row[1] }
+    plasmid_annotation = input_tuple.map { row -> row[2] }
+    plasmid_fasta = input_tuple.map { row -> row[3] }
+    fastq_files = input_tuple.map { row -> row[4] }
     // valid_features = input_tuple.map { it[5] }
     // extension = input_tuple.map { it[6] }
     // single_end = input_tuple.map { it[7] }
-    region = input_tuple.map { it[5] }
-    region = region.ifEmpty("[]")
+    // The region is carried per sample on `meta.region`, set from the samplesheet
     // Convert plasmid annotation if provided
     if (plasmid_annotation) {
         plasmid_gtf = GFF_TO_GTF_PLASMID(plasmid_annotation, valid_features, extension)
     } else {
-        plasmid_gtf = Channel.empty()
+        plasmid_gtf = channel.empty()
     }
 
     // Convert genome annotation
@@ -88,12 +87,9 @@ workflow MAIN_ANALYSIS {
     // Get the transcript FASTA file
     tx_output = GFFREAD_FASTA(gtf_with_txs.gtf, combined.fasta)
 
-    // Extract FASTA and GTF without metadata
-    fasta_alone = tx_output.gffread_fasta
-        .map { tuple -> tuple[1] }
-
+    // Extract GTF without metadata
     gff_alone = gtf_with_txs.gtf
-        .map { tuple -> tuple[1] }
+        .map { it -> it[1] }
 
     // Filter long reads
     filtered_reads = FILTER_LONG_READS(fastq_files)
@@ -118,25 +114,26 @@ workflow MAIN_ANALYSIS {
     // Optional region-specific analysis.
     // Samples with a blank `region` column are dropped here, so every downstream
     // region process simply gets no work rather than running on a missing contig.
-    region_bam = genome_bam.filter { meta, bam, bai -> meta.region }
+    region_bam = genome_bam.filter { meta, _bam, _bai -> meta.region }
 
     // Per-sample reference files, keyed by sample id so they can be joined on meta
     // instead of cross-multiplied with .combine()
     ref_by_sample = fastq_files
-        .map { meta, reads -> meta.id }
+        .map { meta, _reads -> meta.id }
         .merge(combined.fasta)
         .merge(combined.annotation)
-        .map { id, fasta, gtf -> tuple(id, fasta, gtf) }
+
+    // Each sample paired with its own reference files
+    region_refs = region_bam
+        .map { meta, _bam, _bai -> tuple(meta.id, meta) }
+        .join(ref_by_sample)
 
     // View specific region
     view_region = SAMTOOLS_VIEW_REGION(region_bam, fasta_with_meta, [], 'bai')
 
     // Create BED file for the region of each sample
     region_bed = GTF_TO_REGION_BED(
-        region_bam
-            .map { meta, bam, bai -> tuple(meta.id, meta) }
-            .join(ref_by_sample)
-            .map { id, meta, fasta, gtf -> tuple(meta, gtf, meta.region) }
+        region_refs.map { _id, meta, _fasta, gtf -> tuple(meta, gtf, meta.region) }
     )
 
     // Assemble IGV inputs by joining on meta, so each sample keeps its own
@@ -146,14 +143,12 @@ workflow MAIN_ANALYSIS {
         .join(view_region.bai)
         .map { meta, bed, bam, bai -> tuple(meta.id, meta, bed, bam, bai) }
         .join(ref_by_sample)
-        .map { id, meta, bed, bam, bai, fasta, gtf ->
+        .map { _id, meta, bed, bam, bai, _fasta, gtf ->
             tuple(meta, bed, [gtf, bam], [bai])
         }
 
-    fasta_input_ch = region_bam
-        .map { meta, bam, bai -> tuple(meta.id, meta) }
-        .join(ref_by_sample)
-        .map { id, meta, fasta, gtf -> tuple(meta, fasta, file("${fasta}.fai")) }
+    fasta_input_ch = region_refs
+        .map { _id, meta, fasta, _gtf -> tuple(meta, fasta, file("${fasta}.fai")) }
 
     // Generate IGV reports
     IGVREPORTS(igv_input_ch, fasta_input_ch)
