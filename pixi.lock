@@ -4,6 +4,8 @@ environments:
     channels:
     - url: https://conda.anaconda.org/conda-forge/
     - url: https://conda.anaconda.org/bioconda/
+    options:
+      pypi-prerelease-mode: if-necessary-or-explicit
     packages:
       osx-arm64:
       - conda: https://conda.anaconda.org/conda-forge/noarch/annotated-types-0.7.0-pyhd8ed1ab_1.conda
@@ -90,7 +92,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/markupsafe-3.0.3-py313h7d74516_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/mdurl-0.1.2-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/ncurses-6.5-h5e97a16_3.conda
-      - conda: https://conda.anaconda.org/bioconda/noarch/nextflow-25.04.7-h2a3209d_0.conda
+      - conda: https://conda.anaconda.org/bioconda/noarch/nextflow-26.04.6-h2a3209d_1.conda
       - conda: https://conda.anaconda.org/bioconda/noarch/nf-core-3.3.2-pyhdfd78af_0.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/noarch/nf-test-0.9.3-h2a3209d_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/nodeenv-1.9.1-pyhd8ed1ab_1.conda
@@ -1069,16 +1071,16 @@ packages:
   license: X11 AND BSD-3-Clause
   size: 797030
   timestamp: 1738196177597
-- conda: https://conda.anaconda.org/bioconda/noarch/nextflow-25.04.7-h2a3209d_0.conda
-  sha256: 1e9e7777e951dde05c84ad39bd6ded99afa7faa0c12653b4c68b5ebc669e58d7
-  md5: ebe907641fcb5890b45d58d42ca53f7a
+- conda: https://conda.anaconda.org/bioconda/noarch/nextflow-26.04.6-h2a3209d_1.conda
+  sha256: 452805a6a3cc3f4e28417d855c7c03001dce1b2557a7e8ae46971d3a8778f9af
+  md5: 4fea597e1977b0221de342a3bfb2d971
   depends:
   - coreutils
   - curl
-  - openjdk >=17,<=24
+  - openjdk >=17,<26
   license: Apache-2.0
-  size: 28225380
-  timestamp: 1757344861557
+  size: 37863659
+  timestamp: 1784828644646
 - conda: https://conda.anaconda.org/bioconda/noarch/nf-core-3.3.2-pyhdfd78af_0.tar.bz2
   sha256: 086b182ebb10176ab07e51737ecd5f59d562b80107e4cf574685c49aa6cc80c8
   md5: 7c36444d8c95bdefb63c297622d7b1d6

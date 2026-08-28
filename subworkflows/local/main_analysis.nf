@@ -115,43 +115,48 @@ workflow MAIN_ANALYSIS {
     // Get alignment statistics
     SAMTOOLS_IDXSTATS(genome_bam)
 
-    // Optional region-specific analysis
-    if (region) {
-        // View specific region
-        view_region = SAMTOOLS_VIEW_REGION(genome_bam, fasta_with_meta, [], 'bai')
+    // Optional region-specific analysis.
+    // Samples with a blank `region` column are dropped here, so every downstream
+    // region process simply gets no work rather than running on a missing contig.
+    region_bam = genome_bam.filter { meta, bam, bai -> meta.region }
 
-        // Create BED file for region
-        // gtf_region_ch = combined.annotation
-        //     .map { file -> tuple(file, region) }
-        region_bed = GTF_TO_REGION_BED(combined.annotation, region)
+    // Per-sample reference files, keyed by sample id so they can be joined on meta
+    // instead of cross-multiplied with .combine()
+    ref_by_sample = fastq_files
+        .map { meta, reads -> meta.id }
+        .merge(combined.fasta)
+        .merge(combined.annotation)
+        .map { id, fasta, gtf -> tuple(id, fasta, gtf) }
 
-        // Prepare inputs for IGV reports
-        meta_ch = fasta_with_meta.map { tuple -> tuple[0] }
-        sites_ch = region_bed.bed
-        tracks_ch = view_region.bam
-            .map { tuple -> [tuple[1]] }
-            .combine(combined.annotation)
-        tracks_indices_ch = view_region.bai.map { tuple -> [tuple[1]] }
+    // View specific region
+    view_region = SAMTOOLS_VIEW_REGION(region_bam, fasta_with_meta, [], 'bai')
 
-        fasta_ch = combined.fasta
-        fai_ch = combined.fasta.map { fasta -> file("${fasta}.fai") }
+    // Create BED file for the region of each sample
+    region_bed = GTF_TO_REGION_BED(
+        region_bam
+            .map { meta, bam, bai -> tuple(meta.id, meta) }
+            .join(ref_by_sample)
+            .map { id, meta, fasta, gtf -> tuple(meta, gtf, meta.region) }
+    )
 
-        igv_input_ch = meta_ch
-            .combine(sites_ch)
-            .combine(tracks_ch)
-            .combine(tracks_indices_ch)
-            .map { meta, sites, tracks_0, tracks_1, tracks_indices ->
-                [meta, sites, [tracks_1, tracks_0], tracks_indices]
-            }
+    // Assemble IGV inputs by joining on meta, so each sample keeps its own
+    // bed / bam / annotation instead of pairing with another sample's files
+    igv_input_ch = region_bed.bed
+        .join(view_region.bam)
+        .join(view_region.bai)
+        .map { meta, bed, bam, bai -> tuple(meta.id, meta, bed, bam, bai) }
+        .join(ref_by_sample)
+        .map { id, meta, bed, bam, bai, fasta, gtf ->
+            tuple(meta, bed, [gtf, bam], [bai])
+        }
 
-        fasta_input_ch = meta_ch
-            .combine(fasta_ch)
-            .combine(fai_ch)
-            .map { meta, fasta, fai -> tuple(meta, fasta, fai) }
+    fasta_input_ch = region_bam
+        .map { meta, bam, bai -> tuple(meta.id, meta) }
+        .join(ref_by_sample)
+        .map { id, meta, fasta, gtf -> tuple(meta, fasta, file("${fasta}.fai")) }
 
-        // Generate IGV reports
-        IGVREPORTS(igv_input_ch, fasta_input_ch)
-    }
+    // Generate IGV reports
+    IGVREPORTS(igv_input_ch, fasta_input_ch)
 
     // Filter for mapped reads only
     only_mapped = SAMTOOLS_VIEW(genome_bam, fasta_with_meta, [], 'bai')

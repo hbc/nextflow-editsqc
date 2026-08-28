@@ -27,6 +27,13 @@ jobs:
           wget -qO- https://get.nextflow.io | bash
           sudo mv nextflow /usr/local/bin/
 
+      # Resource caps live in conf/test.config and conf/test_genome.config
       - name: Run Nextflow pipeline on test data
         run: |
-          nextflow run main.nf -profile test,docker -process.memory 1.GB
+          nextflow run main.nf -profile test,docker
+
+      # Genome-only samplesheet with a blank region column: checks that the
+      # region/IGV processes are skipped instead of running on a missing contig
+      - name: Run Nextflow pipeline on genome-only test data
+        run: |
+          nextflow run main.nf -profile test_genome,docker

@@ -1,12 +1,12 @@
 process GTF_TO_REGION_BED {
+    tag "$meta.id"
     label 'process_low'
 
     input:
-    path gtf
-    val region
+    tuple val(meta), path(gtf), val(region)
 
     output:
-    path('regions.bed'), emit: bed
+    tuple val(meta), path('regions.bed'), emit: bed
 
     script:
     """

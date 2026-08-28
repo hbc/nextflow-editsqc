@@ -9,3 +9,4 @@ version = "0.1.0"
 
 [dependencies]
 nf-core = ">=3.3.2,<4"
+nextflow = ">=26.4.6,<27"
