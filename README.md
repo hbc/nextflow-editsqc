@@ -2,42 +2,99 @@
 
 ## Introduction
 
-This pipeline provides a reproducible workflow for processing Oxford Nanopore sequencing data using Nextflow and nf-core modules. It automates key steps from raw read alignment to transcript quantification and report generation, leveraging Docker for containerized execution and ensuring portability across systems.
+This pipeline provides a reproducible workflow for processing Oxford Nanopore sequencing data using Nextflow and nf-core modules. It automates key steps from raw read filtering to transcript quantification and report generation, leveraging containers for portability across systems.
+
+It is aimed at small genomes with optional plasmids: the genome and plasmid sequences and annotations are combined into a single reference, reads are aligned to both the genome and the transcriptome, and transcripts are assembled and quantified against the reference annotation.
+
+## Requirements
+
+- [Nextflow](https://www.nextflow.io/) `>=24.04`
+- Java 17 or later
+- [Docker](https://www.docker.com/) or Singularity/Apptainer
+
+All tools run inside containers, so nothing else needs to be installed locally. Every example below uses `-profile docker`; substitute `singularity` if that is what your system provides.
 
 ## Pipeline Summary
 
 The pipeline performs the following steps:
 
-1. **Input Preparation**
-   Accepts raw FASTQ files, reference genome FASTA, and annotation files (GFF/GTF).
+1. **Reference preparation**
+   Converts the genome and (optional) plasmid GFF annotations to GTF, concatenates the genome and plasmid FASTA and GTF files into a single combined reference, then sorts, bgzips and indexes it (`gffread`, `samtools faidx`, `tabix`).
 
-2. **Read Alignment**
-   Aligns Nanopore reads to the reference genome using Minimap2.
+2. **Transcript extraction**
+   Derives a transcript-level GTF and a transcriptome FASTA from the combined reference (`gffread`).
 
+3. **Read filtering**
+   Filters raw reads by length (`fastplong`, default `--length_limit 10000`).
 
-4. **Annotation Conversion**
-   Converts GFF annotations to GTF format and subsets annotations by region if specified.
+4. **Quality control of raw reads**
+   Runs ToulligQC on the filtered reads.
 
-5. **Transcriptome Assembly & Quantification**
-   Assembles transcripts and quantifies expression using StringTie.
+5. **Alignment**
+   Aligns reads to both the combined genome and the transcriptome with `minimap2`, then indexes the genome alignments and collects `idxstats`.
 
-6. **Quality Control**
-   Performs QC on mapped reads and generates summary statistics.
+6. **Region reports** *(optional, per sample)*
+   For samples with a `region` value, subsets the genome BAM to that region, builds a BED of the features it contains, and generates a self-contained IGV HTML report.
 
-7. **Report Generation**
-   Creates IGV-compatible reports and summary files for downstream analysis.
+7. **Quality control of mapped reads**
+   Keeps only primary mapped reads with MAPQ >= 50 and runs ToulligQC on them.
+
+8. **Transcriptome assembly and quantification**
+   Assembles transcripts with StringTie, merges them with the reference annotation, restores reference gene IDs, and re-quantifies against the merged annotation to produce final abundances.
 
 ## Supplying Inputs
 
-Inputs are provided via Nextflow parameters, either in the command line or in a configuration file:
+Inputs are supplied through a samplesheet CSV, passed with `--input`:
 
-- `--fastq_files` : Path pattern to input FASTQ files (e.g., `data/*.fastq`)
-- `--genome_fasta` : Path to reference genome FASTA file
-- `--gene_annotation` : Path to genome annotation file (GFF)
-- `--plasmid_fasta` : (Optional) Path to plasmid FASTA file
-- `--plasmid_annotation` : (Optional) Path to plasmid annotation file
-- `--region` : (Optional) Chromosome or region to subset annotation
-- `--valid_features` : Space-separated list of feature types present in GFF to be used for quantification. Default: "gene CDS transcription_unit tRNA rRNA"
+```bash
+nextflow run main.nf -profile docker --input samplesheet.csv --outdir results
+```
+
+### Samplesheet format
+
+One row per sample, with this header:
+
+```csv
+sample,fastq_files,genome_fasta,gene_annotation,plasmid_fasta,plasmid_annotation,region
+sample1,reads/sample1.fastq.gz,ref/genome.fasta,ref/genome.gff,ref/plasmid.fasta,ref/plasmid.gff,plasmid
+sample2,reads/sample2.fastq.gz,ref/genome.fasta,ref/genome.gff,,,
+```
+
+| Column | Required | Description |
+| --- | --- | --- |
+| `sample` | yes | Sample identifier. Used to name every output file for that sample, so keep it short and free of spaces. |
+| `fastq_files` | yes | Path to the FASTQ file for this sample. |
+| `genome_fasta` | yes | Reference genome FASTA. |
+| `gene_annotation` | yes | Genome annotation in GFF format. |
+| `plasmid_fasta` | no | Plasmid FASTA. Leave blank to run genome-only. |
+| `plasmid_annotation` | no | Plasmid annotation in GFF format. Leave blank to run genome-only. |
+| `region` | no | Sequence name to report on, e.g. `plasmid`. Leave blank to skip the region and IGV report steps for that sample. |
+
+Reference files may differ between rows, so samples with different genomes or plasmids can be processed in the same run.
+
+`region` is evaluated per sample: in the example above `sample1` produces a region BAM and an IGV report for `plasmid`, while `sample2` skips those steps entirely. The value must match a sequence name present in the combined reference for that sample — a genome-only sample cannot report on `plasmid`.
+
+### Other parameters
+
+- `--outdir` : Output directory. Default: `./results`
+- `--valid_features` : Space-separated list of feature types in the GFF to keep during conversion. Default: `"gene CDS transcription_unit tRNA rRNA"`
+- `--extension` : Number of bases to extend features by during GFF-to-GTF conversion. Default: `0`
+- `--single_end` : Whether reads are single-end. Default: `true`
+
+Parameters can also be collected in a config file:
+
+```groovy
+params {
+    input          = 'samplesheet.csv'
+    outdir         = './results'
+    valid_features = 'gene CDS tRNA rRNA'
+    extension      = '0'
+}
+```
+
+```bash
+nextflow run main.nf -profile docker -c mysample.config
+```
 
 ### Specific details about FASTA and GFF
 
@@ -60,98 +117,125 @@ Below are specific formatting rules and examples to ensure your FASTA and GFF in
 
 - Common pitfalls and tips
   - Mismatched seqids (FASTA header vs GFF seqid column) are the most frequent source of problems — check these first if features or mapping counts are missing.
+  - The `region` column in the samplesheet must also match a sequence name in the combined reference, or the region report will come back empty.
   - Ensure no duplicate sequence IDs in FASTA; tools (StringTie) require unique IDs.
   - GFF3 multi-line attributes or unusual quoting can sometimes break parsers; provide standard, single-line attribute fields.
   - Provide a GFF3 — if you have GFF3 the pipeline will convert to GTF for StringTie where needed.
 
 ## Running the pipeline
 
-Example command:
 ```bash
-nextflow run main.nf --fastq_files 'data/*.fastq' --genome_fasta 'ref/genome.fa' --gene_annotation 'ref/genes.gff'
+nextflow run main.nf -profile docker --input samplesheet.csv --outdir results
 ```
 
-Or create a config file (`mysample.config`) and use it in the command line:
+### Test profiles
 
-```
-params{
-  fastq_files= 'nanopore_np.fastq.gz'
-  genome_fasta= './plasmids/plasmid1.fasta'
-  gene_annotation= './plasmids/plasmid1.annotations.gff3'
-  // plasmid_fasta= './genome_plasmid.fa'
-  // plasmid_annotation= './genome_plasmid.gff'
-  outdir= './results'
-  extension = '0'
-  region = "plasmid_chromosome_name"
-}
+Two profiles run the pipeline on the small dataset in `data/` and are the quickest way to check an installation:
+
+```bash
+# genome plus plasmid, with a region report
+nextflow run main.nf -profile test,docker
+
+# genome only, blank region: the region and IGV steps are skipped
+nextflow run main.nf -profile test_genome,docker
 ```
 
-and then run with:
+Both cap CPU, memory and runtime in `conf/test.config` and `conf/test_genome.config` so they fit on a laptop or a CI runner.
 
-```
-nextflow run main.nf -profile docker -c mysample.config --outdir myresults
-```
+### Other profiles
+
+- `docker`, and the container settings for Singularity/Apptainer, are defined in `nextflow.config`.
+- `minimap` switches genome alignment to spliced mode (`-ax splice -uf -k14`) instead of the default `-ax map-ont`.
 
 ## Pipeline Outputs
 
-The pipeline writes all results to the `results/` directory (or a custom `--outdir`). Below is a detailed description of the directories and files produced by this pipeline (examples taken from the included `results/` folder).
+All results are written to `--outdir` (default `results/`). Output files are named after the `sample` column of the samplesheet, so a sample called `sample1` produces `sample1.bam`, `sample1.gene.abundance.txt`, and so on. Reference-derived files are named after the input FASTA, for example `genome_plasmid_combined.fasta`.
+
+```text
+results/
+├── combine_fasta_annotation/   combined reference FASTA, GTF and indexes
+├── filtered_reads/             length-filtered FASTQ
+├── gffread/                    transcript GTF and transcriptome FASTA
+├── igvreports/                 per-sample IGV HTML reports (region samples only)
+├── minimap2/
+│   ├── genome/                 genome alignments, idxstats, QC, region subsets
+│   └── tx/                     transcriptome alignments
+├── stringtie/                  initial assembly and merged annotation
+├── stringtie_new/              final quantification
+├── toulligqc/                  QC of filtered reads
+└── pipeline_info/              execution reports, timeline, trace and DAG
+```
 
 ### Most useful files
 
-- `combine_fasta_annotation/`
-  - `combined.fasta` — combined transcriptome/genome FASTA used for transcript-level workflows (e.g. Salmon index/quantification).
-  - `combined.gtf` — combined GTF annotation generated from input GFF/GTF files and any plasmid annotations.
-
-- `minimap2/`
-  - `genome/`
-    - `nanopore_reads.bam` — reads aligned to the genome (sorted BAM).
-    - `nanopore_reads.bam.bai` — BAM index for quick access.
-    - `nanopore_reads.idxstats` — per-reference mapping counts (chromosome/plasmid read counts).
-    - `qc/` — per-sample QC reports generated by ToulligQC (HTML report and images).
-    - `region/` — optional subdirectories if reads were aligned or subset by genomic region.
-  - `tx/`
-    - `nanopore_reads.bam` — reads aligned to the transcriptome (if generated).
-    - `nanopore_reads.bam.bai` — BAM index for transcriptome alignments.
-    - `nanopore_reads.idxstats` — mapping counts per transcript.
-
-
 - `stringtie_new/`
-  - `nanopore_reads.transcripts.gtf` — transcripts assembled by StringTie from the sample BAM.
-  - `nanopore_reads.coverage.gtf` — coverage tracks produced by StringTie (`-C` option) showing assembled loci coverage.
-  - `nanopore_reads.gene.abundance.txt` — gene-level abundance table with Coverage, FPKM, and TPM columns.
+  - `<sample>.gene.abundance.txt` — gene-level abundance table with Coverage, FPKM and TPM columns. This is the main quantification result.
+  - `<sample>.transcripts.gtf` — transcripts quantified against the merged annotation.
+  - `<sample>.coverage.gtf` — per-locus coverage.
+  - `<sample>.ballgown/` — Ballgown-compatible tables for downstream expression analysis.
+
+- `minimap2/genome/`
+  - `<sample>.bam` and `<sample>.bam.bai` — reads aligned to the combined reference.
+  - `<sample>.idxstats` — mapped and unmapped read counts per sequence, the quickest way to see how reads split between genome and plasmid.
+  - `qc/` — ToulligQC report for primary mapped reads (MAPQ >= 50).
+  - `region/<sample>.<region>.bam` — alignments subset to the requested region, for samples that specify one.
+
+- `combine_fasta_annotation/`
+  - `<genome>_<plasmid>_combined.fasta` — combined reference used for alignment, plus its `.fai` index.
+  - `<genome>_<plasmid>_combined.gtf` — combined annotation, plus a sorted, bgzipped and tabix-indexed copy for use as an IGV track.
+  - `regions.bed` — features contained in the requested region.
+
+- `igvreports/`
+  - `<sample>_report.html` — self-contained IGV report for the requested region, viewable in a browser with no additional files.
 
 ### Complementary output files
 
 - `filtered_reads/`
-  - `nanopore_reads.fastq_filtered.fastq.gz` — input FASTQ after optional filtering (length/quality) performed by the `filter_long_reads` module.
+  - `<reads>_filtered.fastq.gz` — reads after length filtering by `fastplong`.
 
 - `gffread/`
-  - `tx.gtf` — transcript GTF produced by converting and/or subsetting the original annotation (used by StringTie and Salmon).
-  - `tx.seq.fasta` — transcriptome FASTA produced from the annotation and reference, used for transcript-level quantification.
-  - `versions.yml` — versions of tools used to generate these files.
+  - `<reference>_fixed.gtf` — transcript-level GTF derived from the combined annotation, used by StringTie.
+  - `<reference>_tx.fasta` — transcriptome FASTA used for transcriptome alignment.
 
-- `pipeline_info/`
-  - `execution_report_<timestamp>.html` — full Nextflow execution report (runtime, resource usage, and process summaries).
-  - `execution_timeline_<timestamp>.html` — timeline of workflow execution for debugging and review.
-  - `execution_trace_<timestamp>.txt` — raw trace of tasks run by Nextflow.
-  - `pipeline_dag_<timestamp>.html` — graphical representation of the pipeline DAG.
+- `minimap2/tx/`
+  - `<sample>.bam` and `<sample>.bam.bai` — reads aligned to the transcriptome.
 
-- `stringtie/` and `stringtie_new/`
-  - `nanopore_reads.transcripts.gtf` — transcripts assembled by StringTie from the sample BAM.
-  - `nanopore_reads.coverage.gtf` — coverage tracks produced by StringTie (`-C` option) showing assembled loci coverage.
-  - `nanopore_reads.gene.abundance.txt` — gene-level abundance table with Coverage, FPKM, and TPM columns.
-  - `stringtie.merged.gtf` / `stringtie.merged.refgene.gtf` — merged transcriptomes across samples and (optionally) reconciled with reference annotation.
-  - `nanopore_reads.ballgown/` — Ballgown-compatible output for downstream expression analysis.
+- `stringtie/`
+  - `<sample>.transcripts.gtf`, `<sample>.coverage.gtf`, `<sample>.gene.abundance.txt` — results of the initial assembly, before merging.
+  - `stringtie.merged.gtf` — assembled transcripts merged with the reference annotation.
+  - `stringtie.merged.refgene.gtf` — the merged annotation with reference gene IDs restored. This is what the final quantification runs against.
 
 - `toulligqc/`
-  - `nanopore_readsToulligqc-report-<date>/` — HTML QC reports and `images/` (read length distributions, PHRED score plots, correlation plots, etc.) used to assess sequencing quality and mapping characteristics.
-  - `versions.yml` — versions of ToulligQC and dependent tools.
+  - `<sample>Toulligqc-report-<date>/` — HTML QC report and images (read length distributions, PHRED score plots) for the filtered reads.
 
-Notes:
-- Most result folders also include a `versions.yml` file recording tool versions used during the run for reproducibility.
-- Filenames include the sample name (here `nanopore_reads`) when multiple samples are processed; expect one subdirectory per sample in `minimap2/`, `salmon/`, `stringtie/`, etc.
+- `pipeline_info/`
+  - `execution_report_<timestamp>.html` — runtime, resource usage and process summaries.
+  - `execution_timeline_<timestamp>.html` — timeline of workflow execution.
+  - `execution_trace_<timestamp>.txt` — raw task trace.
+  - `pipeline_dag_<timestamp>.html` — graphical representation of the pipeline DAG.
 
-This detailed listing should help you locate specific outputs for downstream analysis or visualization (for example, open the `execution_report_*.html` in a browser to inspect pipeline-level statistics, or load `nanopore_reads.bam` into IGV together with `combined.gtf` for visualization).
+Most result folders also include a `versions.yml` recording the tool versions used, for reproducibility.
+
+To inspect a run, open `pipeline_info/execution_report_*.html` in a browser, or load `minimap2/genome/<sample>.bam` into IGV together with `combine_fasta_annotation/<reference>_combined.gtf`.
+
+## Credits
+
+This pipeline was written by:
+
+- [Lorena Pantano](https://www.linkedin.com/in/lpantano/)
+- [Alex Bartlett](https://www.linkedin.com/in/alexandra-bartlett-926b32109/)
+
+In collaboration with:
+
+- Alkmini Diamantidi (<alkmini.diamantidi@braskem.com>)
+- Hugo Rody Vianna Silva (<hugo.vianna@braskem.com>)
+- Susan McAvoy (<susan.mcavoy@braskem.com>)
+- Jonathan Turner (<jonjoet@gmail.com>)
+- Wing-On Ng (<wingon.ng@braskem.com>)
+
+## Citations
+
+Tool references are collected in [CITATIONS.md](CITATIONS.md). Release history is in [CHANGELOG.md](CHANGELOG.md), and the pipeline is released under the [MIT license](LICENSE).
 
 ---
 

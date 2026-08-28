@@ -22,15 +22,17 @@ Citations
 - **gffread**  
   Pertea G, Pertea M. GFF Utilities: GffRead and GffCompare. F1000Res. 2020;9:304. doi: 10.12688/f1000research.23297.1. PubMed PMID: 32269596.
 
-- **salmon**  
-  Patro R, Duggal G, Love MI, Irizarry RA, Kingsford C. Salmon provides fast and bias-aware quantification of transcript expression. Nat Methods. 2017 Apr;14(4):417-419. doi: 10.1038/nmeth.4197. PubMed PMID: 28263959.
+- **htslib (bgzip, tabix)**  
+  Bonfield JK, Marshall J, Danecek P, et al. HTSlib: C library for reading/writing high-throughput sequencing data. Gigascience. 2021 Feb 16;10(2):giab007. doi: 10.1093/gigascience/giab007. PubMed PMID: 33594436.
 
-- **bedtools**  
-  Quinlan AR, Hall IM. BEDTools: a flexible suite of utilities for comparing genomic features. Bioinformatics. 2010 Mar 15;26(6):841-842. doi: 10.1093/bioinformatics/btq033. PubMed PMID: 20110278.
+- **fastplong**  
+  No formal publication. See: https://github.com/OpenGene/fastplong
 
 - **IGVReports**  
   No formal publication. See: https://github.com/igvteam/igv-reports
 
 - **toulligQC** 
   No formal publication. See: https://github.com/GenomiqueENS/toulligQC
+
+Salmon and bedtools are referenced by the helper scripts in `bin/` but are not run by the pipeline in its current form.
 
